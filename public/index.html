@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0a0008">
   <title>ShieldWatch — UADR Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dashboard.css">
 </head>
 <body>
@@ -159,11 +162,11 @@
     <div class="panel-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Live Threat Feed
-      <span class="live-badge">● LIVE</span>
+      <span class="live-badge"><span class="live-dot"></span>LIVE</span>
     </div>
     <div class="feed" id="feed">
       <div class="feed-empty" id="feedEmpty">
-        <div class="feed-empty-icon">🛡️</div>
+        <div class="feed-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:0.3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
         <div>Monitoring NexaChat — no threats detected</div>
         <div class="feed-empty-sub">Attacks will appear here in real-time</div>
       </div>
@@ -178,7 +181,7 @@
     </div>
 
     <div class="profile-empty" id="profileEmpty">
-      <div>🎯</div>
+      <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:36px;height:36px;opacity:0.3"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
       <div>Click an attacker to view profile</div>
     </div>
 
@@ -245,10 +248,10 @@
       <!-- Block Actions -->
       <div style="padding: 0 16px 8px; display:flex; gap:8px;">
         <button class="block-ip-btn" id="blockIPBtn" onclick="blockCurrentIP()">
-          🚫 Block IP
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Block IP
         </button>
         <button class="unblock-ip-btn" id="unblockIPBtn" onclick="unblockCurrentIP()" style="display:none">
-          ✅ Unblock IP
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="20 6 9 17 4 12"/></svg> Unblock IP
         </button>
       </div>
       <div style="padding: 0 16px 16px; display:flex; gap:8px;">
@@ -256,7 +259,7 @@
           🔒 Block Device (beats VPN)
         </button>
         <button class="unblock-ip-btn" id="unblockFPBtn" onclick="unblockCurrentFP()" style="display:none">
-          ✅ Unblock Device
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="20 6 9 17 4 12"/></svg> Unblock Device
         </button>
       </div>
 

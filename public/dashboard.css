@@ -152,7 +152,7 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -162,6 +162,7 @@ html, body {
 .header {
   height: var(--header-h);
   background: var(--surface);
+  background-image: radial-gradient(ellipse at top center, rgba(139,92,246,0.07) 0%, transparent 70%);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -349,6 +350,20 @@ html, body {
 }
 .panel-title svg { width: 13px; height: 13px; color: var(--red); }
 
+.live-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  margin-right: 5px;
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
 .live-badge {
   margin-left: auto;
   font-size: 10px;
@@ -384,9 +399,9 @@ html, body {
   transition: border-color 0.2s;
 }
 .stat-card:hover        { border-color: var(--border-l); }
-.stat-red    { border-color: rgba(239,68,68,0.2); }
-.stat-orange { border-color: rgba(249,115,22,0.2); }
-.stat-purple { border-color: rgba(168,85,247,0.2); }
+.stat-red    { border-color: rgba(239,68,68,0.2);   border-top: 2px solid rgba(239,68,68,0.6); }
+.stat-orange { border-color: rgba(249,115,22,0.2); border-top: 2px solid rgba(249,115,22,0.6); }
+.stat-purple { border-color: rgba(168,85,247,0.2); border-top: 2px solid rgba(168,85,247,0.6); }
 
 .stat-val {
   font-size: 24px;
@@ -487,7 +502,7 @@ html, body {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-sec);
-  font-family: monospace;
+  font-family: 'Fira Code', monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -525,7 +540,7 @@ html, body {
   font-size: 13px;
   text-align: center;
 }
-.feed-empty-icon { font-size: 48px; }
+.feed-empty-icon { display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .feed-empty-sub  { font-size: 11px; color: #4a2a2a; }
 
 /* ── Feed Item ── */
@@ -581,7 +596,7 @@ html, body {
   margin-left: auto;
   font-size: 11px;
   color: var(--text-muted);
-  font-family: monospace;
+  font-family: 'Fira Code', monospace;
   flex-shrink: 0;
 }
 
@@ -592,13 +607,13 @@ html, body {
   font-size: 11px;
   color: var(--text-muted);
 }
-.feed-path   { font-family: monospace; color: var(--text-sec); }
+.feed-path   { font-family: 'Fira Code', monospace; color: var(--text-sec); }
 .feed-sep    { color: var(--border-l); }
-.feed-session{ font-family: monospace; color: var(--purple); }
+.feed-session{ font-family: 'Fira Code', monospace; color: var(--purple); }
 
 .feed-payload {
   margin-top: 5px;
-  font-family: monospace;
+  font-family: 'Fira Code', monospace;
   font-size: 11px;
   color: var(--orange);
   background: rgba(249,115,22,0.07);
@@ -629,7 +644,7 @@ html, body {
   padding: 40px 20px;
   text-align: center;
 }
-.profile-empty div:first-child { font-size: 36px; }
+.profile-empty div:first-child { display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 
 .hidden { display: none !important; }
 
@@ -699,7 +714,7 @@ html, body {
 
 .pr-lbl { font-size: 11px; color: var(--text-muted); width: 72px; flex-shrink: 0; }
 .pr-val { font-size: 12px; color: var(--text-sec); flex: 1; word-break: break-all; }
-.pr-val.mono { font-family: monospace; font-size: 11px; }
+.pr-val.mono { font-family: 'Fira Code', monospace; font-size: 11px; }
 
 /* ── Attack Summary ── */
 .attack-summary {
@@ -812,7 +827,7 @@ html, body {
 }
 .blocked-ip-addr {
   flex: 1;
-  font-family: monospace;
+  font-family: 'Fira Code', monospace;
   font-size: 12px;
   color: var(--red);
   font-weight: 600;
@@ -858,3 +873,7 @@ html, body {
 ::-webkit-scrollbar       { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-l); border-radius: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
