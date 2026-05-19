@@ -8,8 +8,8 @@
   const gate        = document.getElementById('pinGate');
   if (!gate) return;
 
-  // Already authenticated this browser session?
-  if (sessionStorage.getItem(SESSION_KEY) === '1') {
+  // Already authenticated? Skip PIN gate
+  if (localStorage.getItem(SESSION_KEY) === '1') {
     gate.style.display = 'none';
     return;
   }
@@ -106,8 +106,8 @@
       const data = await res.json();
 
       if (data.ok) {
-        sessionStorage.setItem(SESSION_KEY, '1');
-        sessionStorage.setItem('sw_token', data.token || '');
+        localStorage.setItem(SESSION_KEY, '1');
+        localStorage.setItem('sw_token', data.token || '');
         showSuccess();
         return;
       }
@@ -153,23 +153,33 @@
 /* ══════════════════════════════════════════════════════════════════════════ */
 
 // ─── Auth token helper ────────────────────────────────────────────────────────
-function swToken() { return sessionStorage.getItem('sw_token') || ''; }
+function swToken() { return localStorage.getItem('sw_token') || ''; }
 
 function authHeaders(extra = {}) {
   return { 'Content-Type': 'application/json', 'x-sw-token': swToken(), ...extra };
 }
 
 function forceLogout() {
-  sessionStorage.removeItem('sw_pin_auth');
-  sessionStorage.removeItem('sw_token');
+  localStorage.removeItem('sw_pin_auth');
+  localStorage.removeItem('sw_token');
   location.reload();
 }
 
 const socket = io({ auth: { token: swToken() } });
 
-// If server rejects the token (e.g. after restart) → back to PIN gate
+// If server rejects the token:
+// - Had a token but server restarted (cleared it) → session expired → show PIN gate
+// - No token at all → user is at PIN gate → just disconnect quietly, never reload
 socket.on('connect_error', (err) => {
-  if (err.message === 'SESSION_EXPIRED') forceLogout();
+  if (err.message === 'SESSION_EXPIRED') {
+    if (swToken()) {
+      // Had a real token that the server no longer recognises → force re-auth
+      forceLogout();
+    } else {
+      // No token yet — user is on the PIN gate screen, socket failure is expected
+      socket.disconnect();
+    }
+  }
 });
 
 // ─── State ────────────────────────────────────────────────────────────────────
