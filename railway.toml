@@ -1,0 +1,4 @@
+[deploy]
+startCommand = "node collector.js"
+healthcheckPath = "/ping"
+healthcheckTimeout = 30
