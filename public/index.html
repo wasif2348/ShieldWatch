@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0008">
+  <title>ShieldWatch — UADR Dashboard</title>
+  <link rel="stylesheet" href="/dashboard.css">
+</head>
+<body>
+
+<!-- ═══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header class="header">
+  <div class="header-brand">
+    <div class="sw-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-title">ShieldWatch <span class="header-sub">UADR</span></div>
+      <div class="header-desc">Runtime Application Self-Protection</div>
+    </div>
+  </div>
+
+  <div class="header-status">
+    <div class="status-pill" id="statusPill">
+      <span class="status-dot"></span>
+      <span id="statusText">Connecting…</span>
+    </div>
+    <div class="header-app" id="headerApp">NexaChat</div>
+  </div>
+
+  <div class="header-counters">
+    <div class="counter">
+      <div class="counter-val" id="cntTotal">0</div>
+      <div class="counter-lbl">Threats</div>
+    </div>
+    <div class="counter counter-red">
+      <div class="counter-val" id="cntBlocked">0</div>
+      <div class="counter-lbl">Blocked</div>
+    </div>
+    <div class="counter counter-orange">
+      <div class="counter-val" id="cntDecoys">0</div>
+      <div class="counter-lbl">Decoys</div>
+    </div>
+    <div class="counter counter-purple">
+      <div class="counter-val" id="cntAttackers">0</div>
+      <div class="counter-lbl">Attackers</div>
+    </div>
+  </div>
+
+  <button class="reset-btn" id="resetBtn" title="Clear all data">↺ Reset</button>
+</header>
+
+<!-- ═══ MAIN GRID ══════════════════════════════════════════════════════════ -->
+<div class="grid">
+
+  <!-- ── LEFT: Stats + Attack types ── -->
+  <aside class="panel panel-left">
+    <div class="panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Detection Stats
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-val" id="statTotal">0</div>
+        <div class="stat-lbl">Total Events</div>
+      </div>
+      <div class="stat-card stat-red">
+        <div class="stat-val" id="statBlocked">0</div>
+        <div class="stat-lbl">Blocked</div>
+      </div>
+      <div class="stat-card stat-orange">
+        <div class="stat-val" id="statDecoys">0</div>
+        <div class="stat-lbl">Honeypot</div>
+      </div>
+      <div class="stat-card stat-purple">
+        <div class="stat-val" id="statLogged">0</div>
+        <div class="stat-lbl">Logged</div>
+      </div>
+    </div>
+
+    <div class="panel-title" style="margin-top:20px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Attack Types
+    </div>
+    <div class="attack-types" id="attackTypes">
+      <div class="attack-empty">No attacks detected yet</div>
+    </div>
+
+    <div class="panel-title" style="margin-top:20px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Active Attackers
+    </div>
+    <div class="attacker-list" id="attackerList">
+      <div class="attack-empty">No attackers identified</div>
+    </div>
+
+    <div class="panel-title" style="margin-top:20px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      Blocked IPs
+      <span class="blocked-count" id="blockedCount">0</span>
+    </div>
+    <div class="blocked-list" id="blockedList">
+      <div class="attack-empty">No IPs blocked</div>
+    </div>
+  </aside>
+
+  <!-- ── CENTER: Live Event Feed ── -->
+  <main class="panel panel-center">
+    <div class="panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Live Threat Feed
+      <span class="live-badge">● LIVE</span>
+    </div>
+    <div class="feed" id="feed">
+      <div class="feed-empty" id="feedEmpty">
+        <div class="feed-empty-icon">🛡️</div>
+        <div>Monitoring NexaChat — no threats detected</div>
+        <div class="feed-empty-sub">Attacks will appear here in real-time</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── RIGHT: Attacker Profile ── -->
+  <aside class="panel panel-right" id="profilePanel">
+    <div class="panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Attacker Profile
+    </div>
+
+    <div class="profile-empty" id="profileEmpty">
+      <div>🎯</div>
+      <div>Click an attacker to view profile</div>
+    </div>
+
+    <div class="profile-content hidden" id="profileContent">
+
+      <!-- Threat Score -->
+      <div class="score-card" id="scoreCard">
+        <div class="score-label">Threat Score</div>
+        <div class="score-ring">
+          <svg viewBox="0 0 100 100">
+            <circle class="ring-bg" cx="50" cy="50" r="42" />
+            <circle class="ring-fill" id="scoreRing" cx="50" cy="50" r="42"
+              stroke-dasharray="264" stroke-dashoffset="264"/>
+          </svg>
+          <div class="score-value" id="scoreValue">0</div>
+        </div>
+        <div class="score-level" id="scoreLevel">LOW</div>
+      </div>
+
+      <!-- Identity -->
+      <div class="profile-section">
+        <div class="profile-section-title">Identity</div>
+        <div class="profile-row"><span class="pr-lbl">Session</span><span class="pr-val mono" id="pSession">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">IP Address</span><span class="pr-val mono" id="pIP">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">Status</span><span class="pr-val" id="pHoneypot">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">Mac Device ID</span><span class="pr-val mono" id="pFPID" style="color:#a855f7;font-size:10px">—</span></div>
+        <div class="profile-row" style="display:none"><span class="pr-lbl">VPN IPs</span><span class="pr-val mono" id="pVPNHistory" style="color:#f97316;font-size:11px">—</span></div>
+      </div>
+
+      <!-- Location -->
+      <div class="profile-section">
+        <div class="profile-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Geolocation
+        </div>
+        <div class="profile-row"><span class="pr-lbl">Country</span><span class="pr-val" id="pCountry">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">City</span><span class="pr-val" id="pCity">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">ISP / Org</span><span class="pr-val" id="pOrg">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">Timezone</span><span class="pr-val" id="pTZ">—</span></div>
+      </div>
+
+      <!-- Device/Browser (from fingerprint) -->
+      <div class="profile-section">
+        <div class="profile-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          Device Fingerprint
+        </div>
+        <div class="profile-row"><span class="pr-lbl">Browser</span><span class="pr-val" id="pBrowser">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">OS</span><span class="pr-val" id="pOS">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">Screen</span><span class="pr-val" id="pScreen">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">Language</span><span class="pr-val" id="pLang">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">Timezone</span><span class="pr-val" id="pFPTZ">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">CPU Cores</span><span class="pr-val" id="pCores">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">GPU</span><span class="pr-val" id="pGPU">—</span></div>
+        <div class="profile-row"><span class="pr-lbl">Touch</span><span class="pr-val" id="pTouch">—</span></div>
+      </div>
+
+      <!-- Attack Summary -->
+      <div class="profile-section">
+        <div class="profile-section-title">Attack Summary</div>
+        <div class="attack-summary" id="attackSummary"></div>
+      </div>
+
+      <!-- Block Actions -->
+      <div style="padding: 0 16px 8px; display:flex; gap:8px;">
+        <button class="block-ip-btn" id="blockIPBtn" onclick="blockCurrentIP()">
+          🚫 Block IP
+        </button>
+        <button class="unblock-ip-btn" id="unblockIPBtn" onclick="unblockCurrentIP()" style="display:none">
+          ✅ Unblock IP
+        </button>
+      </div>
+      <div style="padding: 0 16px 16px; display:flex; gap:8px;">
+        <button class="block-ip-btn" id="blockFPBtn" onclick="blockCurrentFP()" style="background:rgba(168,85,247,0.15);color:#a855f7;border-color:rgba(168,85,247,0.35)">
+          🔒 Block Device (beats VPN)
+        </button>
+        <button class="unblock-ip-btn" id="unblockFPBtn" onclick="unblockCurrentFP()" style="display:none">
+          ✅ Unblock Device
+        </button>
+      </div>
+
+    </div><!-- /.profile-content -->
+  </aside>
+
+</div><!-- /.grid -->
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/dashboard.js"></script>
+</body>
+</html>
