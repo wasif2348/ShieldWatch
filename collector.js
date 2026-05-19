@@ -348,7 +348,7 @@ app.post('/api/unblock', (req, res) => {
 });
 
 // ─── PIN Authentication ───────────────────────────────────────────────────────
-const PIN_CODE    = process.env.SW_PIN || '1337';
+const PIN_CODE    = process.env.SW_PIN || '2348';
 const pinAttempts = new Map(); // ip → { count, lockedUntil }
 
 app.post('/api/auth/pin', (req, res) => {
