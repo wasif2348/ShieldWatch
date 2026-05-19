@@ -2,6 +2,128 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ═══ PIN GATE ════════════════════════════════════════════════════════════════ */
+.pin-gate {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.45s ease;
+}
+.pin-gate.hidden { opacity: 0; pointer-events: none; }
+
+.pin-card {
+  background: var(--surface);
+  border: 1px solid var(--border-l);
+  border-radius: 22px;
+  padding: 40px 36px 36px;
+  width: 320px;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(239,68,68,0.12), 0 24px 64px rgba(0,0,0,0.5);
+}
+.pin-card.shake   { animation: pinShake 0.45s ease; }
+.pin-card.success { animation: pinSuccessPulse 0.5s ease; }
+
+.pin-logo {
+  width: 56px; height: 56px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #3d0030, #1a0018);
+  border: 1.5px solid var(--border-l);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24px rgba(239,68,68,0.3);
+}
+.pin-logo svg { width: 26px; height: 26px; color: var(--red); }
+
+.pin-brand {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.pin-brand span { color: var(--red); }
+
+.pin-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+}
+
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.pin-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--surface3);
+  border: 1.5px solid var(--border-l);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.pin-dot.filled {
+  background: var(--red);
+  border-color: var(--red);
+  box-shadow: 0 0 10px var(--red-glow);
+  transform: scale(1.15);
+}
+.pin-dot.success {
+  background: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 12px rgba(16,185,129,0.5);
+  transform: scale(1.15);
+}
+
+.pin-msg {
+  font-size: 11.5px;
+  color: var(--red);
+  min-height: 18px;
+  margin-bottom: 24px;
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.pk {
+  height: 58px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.pk:hover  { background: var(--surface3); }
+.pk:active { transform: scale(0.92); box-shadow: 0 0 0 2px var(--red-dim); }
+.pk.pk-ghost { font-size: 16px; color: var(--text-sec); }
+
+@keyframes pinShake {
+  0%,100% { transform: translateX(0); }
+  15%     { transform: translateX(-10px); }
+  30%     { transform: translateX( 10px); }
+  45%     { transform: translateX(-7px);  }
+  60%     { transform: translateX( 7px);  }
+  75%     { transform: translateX(-3px);  }
+  90%     { transform: translateX( 3px);  }
+}
+
+@keyframes pinSuccessPulse {
+  0%   { transform: scale(1);    box-shadow: 0 0  0px rgba(16,185,129,0);   }
+  50%  { transform: scale(1.03); box-shadow: 0 0 40px rgba(16,185,129,0.3); }
+  100% { transform: scale(1);    box-shadow: 0 0  0px rgba(16,185,129,0);   }
+}
+
 :root {
   --bg:        #06000d;
   --surface:   #0f000e;

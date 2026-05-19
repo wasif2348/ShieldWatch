@@ -9,6 +9,48 @@
 </head>
 <body>
 
+<!-- ═══ PIN GATE ══════════════════════════════════════════════════════════════ -->
+<div class="pin-gate" id="pinGate">
+  <div class="pin-card">
+
+    <!-- Logo -->
+    <div class="pin-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <div class="pin-brand">ShieldWatch <span>UADR</span></div>
+    <div class="pin-subtitle" id="pinSubtitle">Enter PIN to access dashboard</div>
+
+    <!-- 4-dot indicator -->
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+
+    <div class="pin-msg" id="pinMsg"></div>
+
+    <!-- Numeric keypad -->
+    <div class="pin-keypad">
+      <button class="pk" data-d="1">1</button>
+      <button class="pk" data-d="2">2</button>
+      <button class="pk" data-d="3">3</button>
+      <button class="pk" data-d="4">4</button>
+      <button class="pk" data-d="5">5</button>
+      <button class="pk" data-d="6">6</button>
+      <button class="pk" data-d="7">7</button>
+      <button class="pk" data-d="8">8</button>
+      <button class="pk" data-d="9">9</button>
+      <button class="pk pk-ghost" id="pkClear">✕</button>
+      <button class="pk" data-d="0">0</button>
+      <button class="pk pk-ghost" id="pkBack">⌫</button>
+    </div>
+
+  </div>
+</div>
+
 <!-- ═══ HEADER ══════════════════════════════════════════════════════════════ -->
 <header class="header">
   <div class="header-brand">

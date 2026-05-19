@@ -347,6 +347,40 @@ app.post('/api/unblock', (req, res) => {
   res.json({ ok: true, unblocked: clean });
 });
 
+// ─── PIN Authentication ───────────────────────────────────────────────────────
+const PIN_CODE    = process.env.SW_PIN || '1337';
+const pinAttempts = new Map(); // ip → { count, lockedUntil }
+
+app.post('/api/auth/pin', (req, res) => {
+  const raw   = req.ip || req.socket?.remoteAddress || 'unknown';
+  const ip    = raw.replace(/^::ffff:/, '');
+  const now   = Date.now();
+  const rec   = pinAttempts.get(ip) || { count: 0, lockedUntil: 0 };
+
+  if (rec.lockedUntil > now) {
+    const secsLeft = Math.ceil((rec.lockedUntil - now) / 1000);
+    return res.status(429).json({ ok: false, locked: true, secsLeft });
+  }
+
+  if (String(req.body?.pin) === String(PIN_CODE)) {
+    pinAttempts.delete(ip);
+    console.log(`[PIN] ✅ Dashboard unlocked from ${ip}`);
+    return res.json({ ok: true });
+  }
+
+  // Wrong PIN — track attempts
+  rec.count += 1;
+  const attemptsLeft = Math.max(0, 5 - rec.count);
+  if (rec.count >= 5) {
+    rec.lockedUntil = now + 60_000;
+    rec.count       = 0;
+    console.log(`[PIN] 🔒 Brute-force lockout triggered for ${ip}`);
+  }
+  pinAttempts.set(ip, rec);
+  console.log(`[PIN] ❌ Wrong PIN from ${ip} | attempts left: ${attemptsLeft}`);
+  return res.status(401).json({ ok: false, locked: false, attemptsLeft });
+});
+
 // ─── Reset (demo convenience) ─────────────────────────────────────────────────
 app.post('/api/reset', (_req, res) => {
   events.splice(0);

@@ -1,5 +1,156 @@
 /* ─── ShieldWatch Dashboard — Real-Time Client ──────────────────────────── */
 
+/* ══════════════════════════════════════════════════════════════════════════
+   PIN GATE — runs before anything else
+   ══════════════════════════════════════════════════════════════════════════ */
+(function PinGate() {
+  const SESSION_KEY = 'sw_pin_auth';
+  const gate        = document.getElementById('pinGate');
+  if (!gate) return;
+
+  // Already authenticated this browser session?
+  if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    gate.style.display = 'none';
+    return;
+  }
+
+  const dots     = [0,1,2,3].map(i => document.getElementById('pd' + i));
+  const msgEl    = document.getElementById('pinMsg');
+  const subtitle = document.getElementById('pinSubtitle');
+  const card     = gate.querySelector('.pin-card');
+
+  let pin      = '';
+  let locked   = false;
+  let lockTick = null;
+
+  /* ── helpers ── */
+  function updateDots() {
+    dots.forEach((d, i) => d.classList.toggle('filled', i < pin.length));
+  }
+
+  function shake() {
+    card.classList.remove('shake');
+    void card.offsetWidth;          // force reflow to restart animation
+    card.classList.add('shake');
+  }
+
+  function showSuccess() {
+    dots.forEach(d => { d.classList.remove('filled'); d.classList.add('success'); });
+    card.classList.add('success');
+    setTimeout(() => {
+      gate.classList.add('hidden');
+      setTimeout(() => { gate.style.display = 'none'; }, 450);
+    }, 620);
+  }
+
+  function setMsg(text, color) {
+    msgEl.textContent   = text;
+    msgEl.style.color   = color || 'var(--red)';
+  }
+
+  /* ── digit input ── */
+  function appendDigit(d) {
+    if (locked || pin.length >= 4) return;
+    pin += d;
+    updateDots();
+    setMsg('');
+    if (pin.length === 4) submitPin();
+  }
+
+  function backspace() {
+    if (locked || pin.length === 0) return;
+    pin = pin.slice(0, -1);
+    updateDots();
+    setMsg('');
+  }
+
+  function clearPin() {
+    if (locked) return;
+    pin = '';
+    updateDots();
+    setMsg('');
+  }
+
+  /* ── lockdown countdown ── */
+  function startLockdown(secsLeft) {
+    locked = true;
+    subtitle.textContent = 'Too many attempts';
+    let secs = secsLeft;
+
+    function tick() {
+      setMsg('Locked — ' + secs + 's remaining');
+      if (secs <= 0) {
+        clearTimeout(lockTick);
+        locked = false;
+        pin    = '';
+        updateDots();
+        setMsg('');
+        subtitle.textContent = 'Enter PIN to access dashboard';
+        return;
+      }
+      secs--;
+      lockTick = setTimeout(tick, 1000);
+    }
+    tick();
+  }
+
+  /* ── submit to server ── */
+  async function submitPin() {
+    locked = true;
+    try {
+      const res  = await fetch('/api/auth/pin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ pin })
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        sessionStorage.setItem(SESSION_KEY, '1');
+        showSuccess();
+        return;
+      }
+
+      if (data.locked) {
+        startLockdown(data.secsLeft);
+        return;
+      }
+
+      // Wrong PIN
+      shake();
+      pin = '';
+      updateDots();
+      locked = false;
+      const left = data.attemptsLeft;
+      setMsg(left > 0
+        ? 'Wrong PIN — ' + left + ' attempt' + (left !== 1 ? 's' : '') + ' left'
+        : 'Too many attempts — locked for 60s');
+
+    } catch (err) {
+      pin = '';
+      updateDots();
+      locked = false;
+      setMsg('Connection error — try again');
+    }
+  }
+
+  /* ── keypad clicks ── */
+  document.querySelectorAll('.pk[data-d]').forEach(btn => {
+    btn.addEventListener('click', () => appendDigit(btn.dataset.d));
+  });
+  document.getElementById('pkBack').addEventListener('click', backspace);
+  document.getElementById('pkClear').addEventListener('click', clearPin);
+
+  /* ── physical keyboard ── */
+  document.addEventListener('keydown', e => {
+    if (e.key >= '0' && e.key <= '9') appendDigit(e.key);
+    else if (e.key === 'Backspace')    backspace();
+    else if (e.key === 'Escape')       clearPin();
+  });
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+
 const socket = io();
 
 // ─── State ────────────────────────────────────────────────────────────────────
