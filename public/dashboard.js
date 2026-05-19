@@ -254,7 +254,9 @@ async function fetchStats() {
 }
 
 function updateCounters(events, attackers) {
-  animateNum('cntAttackers', attackers.length);
+  // Only count users who have actually committed attacks
+  const realCount = attackers.filter(a => (a.threatScore || 0) > 0).length;
+  animateNum('cntAttackers', realCount);
   fetchStats();
 }
 
@@ -281,7 +283,6 @@ const ATTACK_META = {
   xss:            { icon: '📜', label: 'XSS',              color: '#f97316' },
   pathTraversal:  { icon: '📂', label: 'Path Traversal',   color: '#f59e0b' },
   cmdInjection:   { icon: '💻', label: 'Cmd Injection',    color: '#a855f7' },
-  honeypot:       { icon: '🍯', label: 'Honeypot',         color: '#f97316' },
   ddos:           { icon: '🌊', label: 'DDoS Flood',       color: '#06b6d4' },
   csrf:           { icon: '🎭', label: 'CSRF',             color: '#ec4899' },
   bruteforce:     { icon: '🔐', label: 'Brute Force',      color: '#8b5cf6' },
@@ -410,12 +411,10 @@ function renderProfile(a) {
   $('pSession').textContent = displayName;
   $('pIP').textContent      = a.ip || '—';
 
-  // Status — VPN, Honeypot, or Active
+  // Status — VPN detected or Active
   const statusEl = $('pHoneypot');
   if (a.vpnDetected) {
     statusEl.innerHTML = `<span class="vpn-badge">🔄 VPN ROTATION DETECTED</span>`;
-  } else if (a.inHoneypot) {
-    statusEl.innerHTML = `<span class="hp-badge">🍯 IN HONEYPOT</span>`;
   } else {
     statusEl.textContent = 'Active';
   }

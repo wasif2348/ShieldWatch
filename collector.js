@@ -125,6 +125,14 @@ function threatLevel(score) {
   return                  { label: 'LOW',       color: '#10b981' };
 }
 
+// ─── Only real attackers (at least one confirmed attack event) ────────────────
+function realAttackers() {
+  return Array.from(attackers.values()).filter(p => {
+    const total = Object.values(p.attackCounts || {}).reduce((s, n) => s + n, 0);
+    return total > 0;
+  });
+}
+
 // ─── Upsert Attacker Profile ──────────────────────────────────────────────────
 function upsertProfile(sessionKey, ip, ua, geo, extraData = {}) {
   if (!attackers.has(sessionKey)) {
@@ -194,7 +202,7 @@ app.post('/api/event', async (req, res) => {
 
   // Broadcast
   io.emit('new_event',       evt);
-  io.emit('attackers_update', Array.from(attackers.values()));
+  io.emit('attackers_update', realAttackers());
 
   res.json({ ok: true });
 });
@@ -268,7 +276,10 @@ app.post('/api/fingerprint', async (req, res) => {
 
   console.log(`[Fingerprint] session:${sessionKey} | ${fingerprint.os || '?'} | ${fingerprint.screen || '?'}${vpnDetected ? ' | ⚠️ VPN ROTATION' : ''}`);
 
-  io.emit('attackers_update', Array.from(attackers.values()));
+  // Only push update if this session is already a known attacker (score > 0)
+  if (realAttackers().find(p => p.session === sessionKey)) {
+    io.emit('attackers_update', realAttackers());
+  }
   res.json({ ok: true, fpId, vpnDetected });
 });
 
@@ -276,7 +287,7 @@ app.post('/api/fingerprint', async (req, res) => {
 // REST — dashboard data
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/events',   (_req, res) => res.json(events.slice(0, 100)));
-app.get('/api/attackers',(_req, res) => res.json(Array.from(attackers.values())));
+app.get('/api/attackers',(_req, res) => res.json(realAttackers()));
 
 app.get('/api/stats', (_req, res) => {
   const byType = {};
@@ -402,7 +413,7 @@ io.on('connection', (socket) => {
   // Send current state immediately
   socket.emit('init', {
     events:      events.slice(0, 50),
-    attackers:   Array.from(attackers.values()),
+    attackers:   realAttackers(),
     blocked:     Array.from(blockedIPs),
     blockedFPs:  Array.from(blockedFingerprints),
   });
