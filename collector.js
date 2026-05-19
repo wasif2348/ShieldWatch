@@ -15,10 +15,31 @@ const http       = require('http');
 const { Server } = require('socket.io');
 const path       = require('path');
 const cors       = require('cors');
+const crypto     = require('crypto');
 
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: '*' } });
+
+// ─── Session Tokens (declared here so Socket.io middleware can reference them) ─
+const validTokens = new Set();
+
+function requireAuth(req, res, next) {
+  const token = req.headers['x-sw-token'];
+  if (!token || !validTokens.has(token)) {
+    return res.status(401).json({ ok: false, error: 'Session expired — re-authenticate' });
+  }
+  next();
+}
+
+// ─── Socket.io Session Guard ──────────────────────────────────────────────────
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token || !validTokens.has(token)) {
+    return next(new Error('SESSION_EXPIRED'));
+  }
+  next();
+});
 
 const PORT = process.env.SW_PORT || 3002;
 
@@ -295,12 +316,12 @@ app.post('/api/fingerprint', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REST — dashboard data
+// REST — dashboard data (all protected — dashboard must send x-sw-token header)
 // ─────────────────────────────────────────────────────────────────────────────
-app.get('/api/events',   (_req, res) => res.json(events.slice(0, 100)));
-app.get('/api/attackers',(_req, res) => res.json(realAttackers()));
+app.get('/api/events',   requireAuth, (_req, res) => res.json(events.slice(0, 100)));
+app.get('/api/attackers',requireAuth, (_req, res) => res.json(realAttackers()));
 
-app.get('/api/stats', (_req, res) => {
+app.get('/api/stats', requireAuth, (_req, res) => {
   const byType = {};
   events.forEach(e => {
     const t = e.threat?.type || 'unknown';
@@ -311,7 +332,7 @@ app.get('/api/stats', (_req, res) => {
     blocked:   events.filter(e => e.verdict === 'BLOCKED').length,
     decoys:    events.filter(e => e.verdict === 'DECOY').length,
     logged:    events.filter(e => e.verdict === 'LOGGED').length,
-    attackers: attackers.size,
+    attackers: realAttackers().length,
     byType
   });
 });
@@ -323,15 +344,10 @@ app.get('/ping', (_req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // IP BLOCKING — dashboard-controlled blocklist
 // ─────────────────────────────────────────────────────────────────────────────
-app.get('/api/blocked', (_req, res) => {
-  res.json(Array.from(blockedIPs));
-});
+app.get('/api/blocked',    requireAuth, (_req, res) => res.json(Array.from(blockedIPs)));
+app.get('/api/blocked-fp', requireAuth, (_req, res) => res.json(Array.from(blockedFingerprints)));
 
-app.get('/api/blocked-fp', (_req, res) => {
-  res.json(Array.from(blockedFingerprints));
-});
-
-app.post('/api/block-fp', (req, res) => {
+app.post('/api/block-fp', requireAuth, (req, res) => {
   const { fpId } = req.body;
   if (!fpId) return res.json({ ok: false, error: 'fpId required' });
   blockedFingerprints.add(fpId);
@@ -340,7 +356,7 @@ app.post('/api/block-fp', (req, res) => {
   res.json({ ok: true, blocked: fpId });
 });
 
-app.post('/api/unblock-fp', (req, res) => {
+app.post('/api/unblock-fp', requireAuth, (req, res) => {
   const { fpId } = req.body;
   if (!fpId) return res.json({ ok: false, error: 'fpId required' });
   blockedFingerprints.delete(fpId);
@@ -349,7 +365,7 @@ app.post('/api/unblock-fp', (req, res) => {
   res.json({ ok: true, unblocked: fpId });
 });
 
-app.post('/api/block', (req, res) => {
+app.post('/api/block', requireAuth, (req, res) => {
   const { ip } = req.body;
   if (!ip) return res.json({ ok: false, error: 'ip required' });
   const clean = ip.replace(/^::ffff:/, '').split(':')[0].trim();
@@ -359,7 +375,7 @@ app.post('/api/block', (req, res) => {
   res.json({ ok: true, blocked: clean, total: blockedIPs.size });
 });
 
-app.post('/api/unblock', (req, res) => {
+app.post('/api/unblock', requireAuth, (req, res) => {
   const { ip } = req.body;
   if (!ip) return res.json({ ok: false, error: 'ip required' });
   const clean = ip.replace(/^::ffff:/, '').split(':')[0].trim();
@@ -386,8 +402,10 @@ app.post('/api/auth/pin', (req, res) => {
 
   if (String(req.body?.pin) === String(PIN_CODE)) {
     pinAttempts.delete(ip);
-    console.log(`[PIN] ✅ Dashboard unlocked from ${ip}`);
-    return res.json({ ok: true });
+    const token = crypto.randomBytes(32).toString('hex');
+    validTokens.add(token);
+    console.log(`[PIN] ✅ Dashboard unlocked from ${ip} | token issued`);
+    return res.json({ ok: true, token });
   }
 
   // Wrong PIN — track attempts
@@ -403,8 +421,18 @@ app.post('/api/auth/pin', (req, res) => {
   return res.status(401).json({ ok: false, locked: false, attemptsLeft });
 });
 
+// ─── Logout ───────────────────────────────────────────────────────────────────
+app.post('/api/auth/logout', (req, res) => {
+  const token = req.headers['x-sw-token'];
+  if (token) {
+    validTokens.delete(token);
+    console.log('[Auth] Dashboard session terminated');
+  }
+  res.json({ ok: true });
+});
+
 // ─── Reset (demo convenience) ─────────────────────────────────────────────────
-app.post('/api/reset', (_req, res) => {
+app.post('/api/reset', requireAuth, (_req, res) => {
   events.splice(0);
   attackers.clear();
   geoCache.clear();

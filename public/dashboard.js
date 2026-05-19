@@ -107,6 +107,7 @@
 
       if (data.ok) {
         sessionStorage.setItem(SESSION_KEY, '1');
+        sessionStorage.setItem('sw_token', data.token || '');
         showSuccess();
         return;
       }
@@ -151,7 +152,25 @@
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 
-const socket = io();
+// ─── Auth token helper ────────────────────────────────────────────────────────
+function swToken() { return sessionStorage.getItem('sw_token') || ''; }
+
+function authHeaders(extra = {}) {
+  return { 'Content-Type': 'application/json', 'x-sw-token': swToken(), ...extra };
+}
+
+function forceLogout() {
+  sessionStorage.removeItem('sw_pin_auth');
+  sessionStorage.removeItem('sw_token');
+  location.reload();
+}
+
+const socket = io({ auth: { token: swToken() } });
+
+// If server rejects the token (e.g. after restart) → back to PIN gate
+socket.on('connect_error', (err) => {
+  if (err.message === 'SESSION_EXPIRED') forceLogout();
+});
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let allAttackers    = [];
@@ -255,7 +274,8 @@ socket.on('nexachat_status', (active) => setNexaChatStatus(active));
 // ─── Fetch stats from REST ────────────────────────────────────────────────────
 async function fetchStats() {
   try {
-    const r = await fetch('/api/stats');
+    const r = await fetch('/api/stats', { headers: authHeaders() });
+    if (r.status === 401) { forceLogout(); return; }
     const s = await r.json();
     animateNum('cntTotal',    s.total);
     animateNum('cntBlocked',  s.blocked);
@@ -530,28 +550,28 @@ function updateBlockBtn(a) {
 async function blockCurrentIP() {
   const a = allAttackers.find(x => x.session === selectedSession);
   if (!a || !a.ip) return;
-  await fetch('/api/block', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ip: a.ip }) });
+  await fetch('/api/block', { method:'POST', headers: authHeaders(), body:JSON.stringify({ ip: a.ip }) });
   showToast(`🚫 ${a.ip} blocked!`, 'red');
 }
 
 async function unblockCurrentIP() {
   const a = allAttackers.find(x => x.session === selectedSession);
   if (!a || !a.ip) return;
-  await fetch('/api/unblock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ip: a.ip }) });
+  await fetch('/api/unblock', { method:'POST', headers: authHeaders(), body:JSON.stringify({ ip: a.ip }) });
   showToast(`✅ ${a.ip} unblocked`, 'green');
 }
 
 async function blockCurrentFP() {
   const a = allAttackers.find(x => x.session === selectedSession);
   if (!a || !a.fpId) return;
-  await fetch('/api/block-fp', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ fpId: a.fpId }) });
+  await fetch('/api/block-fp', { method:'POST', headers: authHeaders(), body:JSON.stringify({ fpId: a.fpId }) });
   showToast(`🔒 Device fingerprint blocked — VPN won't help!`, 'red');
 }
 
 async function unblockCurrentFP() {
   const a = allAttackers.find(x => x.session === selectedSession);
   if (!a || !a.fpId) return;
-  await fetch('/api/unblock-fp', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ fpId: a.fpId }) });
+  await fetch('/api/unblock-fp', { method:'POST', headers: authHeaders(), body:JSON.stringify({ fpId: a.fpId }) });
   showToast(`✅ Fingerprint unblocked`, 'green');
 }
 
@@ -574,7 +594,7 @@ function renderBlockedList() {
 async function unblockIP(ip) {
   await fetch('/api/unblock', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({ ip }),
   });
   showToast(`✅ ${ip} unblocked`, 'green');
@@ -595,7 +615,13 @@ function showToast(msg, color = 'red') {
 // ─── Reset button ─────────────────────────────────────────────────────────────
 $('resetBtn').addEventListener('click', async () => {
   if (!confirm('Clear all ShieldWatch data?')) return;
-  await fetch('/api/reset', { method: 'POST' });
+  await fetch('/api/reset', { method: 'POST', headers: authHeaders() });
+});
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+$('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST', headers: authHeaders() });
+  forceLogout();
 });
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────

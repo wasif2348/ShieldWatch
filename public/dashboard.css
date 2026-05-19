@@ -296,6 +296,26 @@ html, body {
 }
 .reset-btn:hover { border-color: var(--red); color: var(--red); }
 
+.logout-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border-l);
+  color: var(--text-muted);
+  padding: 7px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.logout-btn:hover {
+  border-color: var(--purple);
+  color: var(--purple);
+}
+
 /* ═══ GRID ═══════════════════════════════════════════════════════════════════ */
 .grid {
   display: grid;
