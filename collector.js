@@ -33,6 +33,7 @@ const geoCache  = new Map();    // ip → geo data
 const blockedIPs          = new Set();   // manually blocked IPs
 const blockedFingerprints = new Set();   // blocked browser fingerprint hashes
 const fingerprintIndex    = new Map();   // fpId → { sessionKey, ip } (for VPN detection)
+let   lastNexaChatAt      = null;        // timestamp of last contact from NexaChat sensor
 
 // ─── UA Parser ────────────────────────────────────────────────────────────────
 function parseUA(ua) {
@@ -200,6 +201,11 @@ app.post('/api/event', async (req, res) => {
 
   console.log(`[Event] ${tType.toUpperCase()} | ${evt.verdict} | ${sessionKey} | score:${profile.threatScore}`);
 
+  // Mark NexaChat as active
+  const wasConnected = lastNexaChatAt && (Date.now() - lastNexaChatAt) < 300_000;
+  lastNexaChatAt = Date.now();
+  if (!wasConnected) io.emit('nexachat_status', true); // first contact after silence
+
   // Broadcast
   io.emit('new_event',       evt);
   io.emit('attackers_update', realAttackers());
@@ -276,7 +282,12 @@ app.post('/api/fingerprint', async (req, res) => {
 
   console.log(`[Fingerprint] session:${sessionKey} | ${fingerprint.os || '?'} | ${fingerprint.screen || '?'}${vpnDetected ? ' | ⚠️ VPN ROTATION' : ''}`);
 
-  // Only push update if this session is already a known attacker (score > 0)
+  // Mark NexaChat as active
+  const wasConnectedFP = lastNexaChatAt && (Date.now() - lastNexaChatAt) < 300_000;
+  lastNexaChatAt = Date.now();
+  if (!wasConnectedFP) io.emit('nexachat_status', true);
+
+  // Only push attacker update if this session is a known attacker (score > 0)
   if (realAttackers().find(p => p.session === sessionKey)) {
     io.emit('attackers_update', realAttackers());
   }
@@ -412,10 +423,11 @@ io.on('connection', (socket) => {
   console.log('[Dashboard] Client connected:', socket.id);
   // Send current state immediately
   socket.emit('init', {
-    events:      events.slice(0, 50),
-    attackers:   realAttackers(),
-    blocked:     Array.from(blockedIPs),
-    blockedFPs:  Array.from(blockedFingerprints),
+    events:        events.slice(0, 50),
+    attackers:     realAttackers(),
+    blocked:       Array.from(blockedIPs),
+    blockedFPs:    Array.from(blockedFingerprints),
+    lastNexaChatAt,
   });
   socket.on('disconnect', () => console.log('[Dashboard] Client disconnected:', socket.id));
 });

@@ -172,7 +172,7 @@ socket.on('disconnect', () => {
   setStatus(false);
 });
 
-socket.on('init', ({ events, attackers, blocked = [], blockedFPs = [] }) => {
+socket.on('init', ({ events, attackers, blocked = [], blockedFPs = [], lastNexaChatAt }) => {
   allAttackers      = attackers;
   blockedIPSet      = new Set(blocked);
   blockedFPSet      = new Set(blockedFPs);
@@ -181,6 +181,9 @@ socket.on('init', ({ events, attackers, blocked = [], blockedFPs = [] }) => {
   renderBlockedList();
   updateCounters(events, attackers);
   if (attackers.length > 0) selectAttacker(attackers[0]);
+  // Show NexaChat connection state based on last contact time
+  const recentContact = lastNexaChatAt && (Date.now() - lastNexaChatAt) < 300_000;
+  setNexaChatStatus(recentContact);
 });
 
 socket.on('blocked_update', (list) => {
@@ -230,11 +233,24 @@ socket.on('reset', () => {
 });
 
 // ─── Status ───────────────────────────────────────────────────────────────────
+let _socketOnline = false;
+
 function setStatus(online) {
-  const pill = $('statusPill');
-  pill.classList.toggle('online', online);
-  $('statusText').textContent = online ? 'LIVE — Connected' : 'Disconnected';
+  _socketOnline = online;
+  if (!online) {
+    $('statusPill').classList.remove('online');
+    $('statusText').textContent = 'Disconnected';
+  }
+  // If socket reconnects, re-evaluate NexaChat status (don't auto-show "Connected")
 }
+
+function setNexaChatStatus(active) {
+  const pill = $('statusPill');
+  pill.classList.toggle('online', active);
+  $('statusText').textContent = active ? 'LIVE — Connected' : 'Awaiting NexaChat…';
+}
+
+socket.on('nexachat_status', (active) => setNexaChatStatus(active));
 
 // ─── Fetch stats from REST ────────────────────────────────────────────────────
 async function fetchStats() {
