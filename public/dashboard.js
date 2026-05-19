@@ -270,7 +270,7 @@ socket.on('nexachat_status', (active) => setNexaChatStatus(active));
 async function fetchStats() {
   try {
     const r = await fetch('/api/stats', { headers: authHeaders() });
-    if (r.status === 401) { forceLogout(); return; }
+    if (!r.ok) return;
     const s = await r.json();
     animateNum('cntTotal',    s.total);
     animateNum('cntBlocked',  s.blocked);

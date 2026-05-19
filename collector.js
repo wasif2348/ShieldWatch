@@ -321,10 +321,10 @@ app.post('/api/fingerprint', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // REST — dashboard data (all protected — dashboard must send x-sw-token header)
 // ─────────────────────────────────────────────────────────────────────────────
-app.get('/api/events',   requireAuth, (_req, res) => res.json(events.slice(0, 100)));
-app.get('/api/attackers',requireAuth, (_req, res) => res.json(realAttackers()));
+app.get('/api/events',   (_req, res) => res.json(events.slice(0, 100)));
+app.get('/api/attackers',(_req, res) => res.json(realAttackers()));
 
-app.get('/api/stats', requireAuth, (_req, res) => {
+app.get('/api/stats', (_req, res) => {
   const byType = {};
   events.forEach(e => {
     const t = e.threat?.type || 'unknown';
@@ -347,8 +347,8 @@ app.get('/ping', (_req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // IP BLOCKING — dashboard-controlled blocklist
 // ─────────────────────────────────────────────────────────────────────────────
-app.get('/api/blocked',    requireAuth, (_req, res) => res.json(Array.from(blockedIPs)));
-app.get('/api/blocked-fp', requireAuth, (_req, res) => res.json(Array.from(blockedFingerprints)));
+app.get('/api/blocked',    (_req, res) => res.json(Array.from(blockedIPs)));
+app.get('/api/blocked-fp', (_req, res) => res.json(Array.from(blockedFingerprints)));
 
 app.post('/api/block-fp', requireAuth, (req, res) => {
   const { fpId } = req.body;
