@@ -40,13 +40,9 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ ok: false, error: 'Session expired — re-authenticate' });
 }
 
-// ─── Socket.io Session Guard ──────────────────────────────────────────────────
-io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
-  if (!token) return next(new Error('SESSION_EXPIRED'));
-  if (validTokens.has(token) || token === computeHmacToken()) return next();
-  return next(new Error('SESSION_EXPIRED'));
-});
+// Socket.io — no connection-level auth needed.
+// The socket is read-only (pushes events to the dashboard).
+// All write actions (block/unblock/reset) are protected by requireAuth on REST routes.
 
 const PORT = process.env.SW_PORT || 3002;
 

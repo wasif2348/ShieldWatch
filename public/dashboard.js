@@ -165,22 +165,7 @@ function forceLogout() {
   location.reload();
 }
 
-const socket = io({ auth: { token: swToken() } });
-
-// If server rejects the token:
-// - Had a token but server restarted (cleared it) → session expired → show PIN gate
-// - No token at all → user is at PIN gate → just disconnect quietly, never reload
-socket.on('connect_error', (err) => {
-  if (err.message === 'SESSION_EXPIRED') {
-    if (swToken()) {
-      // Had a real token that the server no longer recognises → force re-auth
-      forceLogout();
-    } else {
-      // No token yet — user is on the PIN gate screen, socket failure is expected
-      socket.disconnect();
-    }
-  }
-});
+const socket = io();
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let allAttackers    = [];
