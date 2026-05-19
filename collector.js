@@ -17,28 +17,35 @@ const path       = require('path');
 const cors       = require('cors');
 const crypto     = require('crypto');
 
+// ─── PIN + Session config (must be before io middleware) ──────────────────────
+const PIN_CODE    = process.env.SW_PIN || '2348';
+const validTokens = new Set();
+
+// Deterministic HMAC token — same PIN always produces the same token.
+// This means auth survives server restarts without a database.
+function computeHmacToken() {
+  return crypto.createHmac('sha256', PIN_CODE + 'shieldwatch-uadr-secret')
+               .digest('hex');
+}
+
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: '*' } });
 
-// ─── Session Tokens (declared here so Socket.io middleware can reference them) ─
-const validTokens = new Set();
-
 function requireAuth(req, res, next) {
   const token = req.headers['x-sw-token'];
-  if (!token || !validTokens.has(token)) {
-    return res.status(401).json({ ok: false, error: 'Session expired — re-authenticate' });
-  }
-  next();
+  if (!token) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  // Accept either: active session token OR the deterministic HMAC token
+  if (validTokens.has(token) || token === computeHmacToken()) return next();
+  return res.status(401).json({ ok: false, error: 'Session expired — re-authenticate' });
 }
 
 // ─── Socket.io Session Guard ──────────────────────────────────────────────────
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
-  if (!token || !validTokens.has(token)) {
-    return next(new Error('SESSION_EXPIRED'));
-  }
-  next();
+  if (!token) return next(new Error('SESSION_EXPIRED'));
+  if (validTokens.has(token) || token === computeHmacToken()) return next();
+  return next(new Error('SESSION_EXPIRED'));
 });
 
 const PORT = process.env.SW_PORT || 3002;
@@ -386,7 +393,6 @@ app.post('/api/unblock', requireAuth, (req, res) => {
 });
 
 // ─── PIN Authentication ───────────────────────────────────────────────────────
-const PIN_CODE    = process.env.SW_PIN || '2348';
 const pinAttempts = new Map(); // ip → { count, lockedUntil }
 
 app.post('/api/auth/pin', (req, res) => {
@@ -402,9 +408,9 @@ app.post('/api/auth/pin', (req, res) => {
 
   if (String(req.body?.pin) === String(PIN_CODE)) {
     pinAttempts.delete(ip);
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = computeHmacToken(); // deterministic — survives server restarts
     validTokens.add(token);
-    console.log(`[PIN] ✅ Dashboard unlocked from ${ip} | token issued`);
+    console.log(`[PIN] ✅ Dashboard unlocked from ${ip}`);
     return res.json({ ok: true, token });
   }
 
