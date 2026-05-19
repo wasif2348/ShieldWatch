@@ -44,7 +44,7 @@ function requireAuth(req, res, next) {
 // The socket is read-only (pushes events to the dashboard).
 // All write actions (block/unblock/reset) are protected by requireAuth on REST routes.
 
-const PORT = process.env.SW_PORT || 3002;
+const PORT = process.env.PORT || process.env.SW_PORT || 3002;
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
