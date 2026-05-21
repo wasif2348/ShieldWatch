@@ -4,124 +4,243 @@
 
 /* ═══ PIN GATE ════════════════════════════════════════════════════════════════ */
 .pin-gate {
-  position: fixed; inset: 0;
-  z-index: 9999;
-  background: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: fixed; inset: 0; z-index: 9999;
+  background: #020008;
+  display: flex; align-items: center; justify-content: center;
   transition: opacity 0.45s ease;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 .pin-gate.hidden { opacity: 0; pointer-events: none; }
 
+/* Background grid */
+.pg-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(147,51,234,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147,51,234,0.04) 1px, transparent 1px);
+  background-size: 52px 52px;
+  will-change: transform;
+  animation: pgGridDrift 32s linear infinite;
+  pointer-events: none;
+}
+@keyframes pgGridDrift { from{transform:translateY(0)} to{transform:translateY(52px)} }
+
+/* Orbs */
+.pg-orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(90px); pointer-events: none;
+  will-change: transform, opacity;
+}
+.pg-orb-1 {
+  width: 540px; height: 540px;
+  background: radial-gradient(circle, rgba(109,40,217,0.2) 0%, transparent 65%);
+  top: -180px; left: -160px;
+  animation: pgOrbA 14s ease-in-out infinite;
+}
+.pg-orb-2 {
+  width: 440px; height: 440px;
+  background: radial-gradient(circle, rgba(239,68,68,0.1) 0%, transparent 65%);
+  bottom: -120px; right: -120px;
+  animation: pgOrbB 18s ease-in-out infinite;
+}
+.pg-orb-3 {
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(34,211,238,0.07) 0%, transparent 65%);
+  top: 50%; left: 50%; transform: translate(-50%,-50%);
+  animation: pgOrbC 22s ease-in-out infinite;
+}
+@keyframes pgOrbA {
+  0%,100%{transform:translate(0,0) scale(1);opacity:.7}
+  33%{transform:translate(28px,20px) scale(1.06);opacity:.95}
+  66%{transform:translate(-16px,32px) scale(.97);opacity:.75}
+}
+@keyframes pgOrbB {
+  0%,100%{transform:translate(0,0) scale(1);opacity:.6}
+  40%{transform:translate(-24px,-18px) scale(1.08);opacity:.9}
+  75%{transform:translate(18px,-28px) scale(.96);opacity:.65}
+}
+@keyframes pgOrbC {
+  0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(1)}
+  50%{opacity:.8;transform:translate(-50%,-50%) scale(1.15)}
+}
+
+/* Scanlines */
+.pg-scan { position:absolute; left:0; right:0; top:0; pointer-events:none; will-change:transform; }
+.pg-scan-1 {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(34,211,238,0.25) 40%, rgba(34,211,238,0.35) 50%, rgba(34,211,238,0.25) 60%, transparent);
+  animation: pgScanMove 7s linear infinite;
+}
+.pg-scan-2 {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(147,51,234,0.15) 40%, rgba(147,51,234,0.22) 50%, rgba(147,51,234,0.15) 60%, transparent);
+  animation: pgScanMove 13s linear infinite; animation-delay: -5s;
+}
+@keyframes pgScanMove { from{transform:translateY(-2px)} to{transform:translateY(100vh)} }
+
+/* Card */
 .pin-card {
-  background: var(--surface);
-  border: 1px solid var(--border-l);
+  position: relative; z-index: 10; width: 400px;
+  background: rgba(6,0,18,0.92);
+  backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
   border-radius: 22px;
-  padding: 40px 36px 36px;
-  width: 320px;
-  text-align: center;
-  box-shadow: 0 0 60px rgba(239,68,68,0.12), 0 24px 64px rgba(0,0,0,0.5);
+  border: 1px solid rgba(147,51,234,0.2);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(147,51,234,0.05), 0 0 80px rgba(88,28,220,0.12),
+    0 40px 100px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.04);
 }
-.pin-card.shake   { animation: pinShake 0.45s ease; }
-.pin-card.success { animation: pinSuccessPulse 0.5s ease; }
-
-.pin-logo {
-  width: 56px; height: 56px;
-  margin: 0 auto 16px;
-  background: linear-gradient(135deg, #3d0030, #1a0018);
-  border: 1.5px solid var(--border-l);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 24px rgba(239,68,68,0.3);
+.pin-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(147,51,234,0.6), transparent);
+  z-index: 1;
 }
-.pin-logo svg { width: 26px; height: 26px; color: var(--red); }
-
-.pin-brand {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-.pin-brand span { color: var(--red); }
-
-.pin-subtitle {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 28px;
+.pin-card.shake { animation: pgShake 0.48s ease; }
+@keyframes pgShake {
+  0%,100%{transform:translateX(0)} 15%{transform:translateX(-8px)}
+  35%{transform:translateX(7px)} 55%{transform:translateX(-5px)}
+  75%{transform:translateX(3px)} 90%{transform:translateX(-2px)}
 }
 
-.pin-dots {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-bottom: 10px;
+/* Inner card scan */
+.pg-card-scan { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
+.pg-card-scan::before {
+  content: ''; position: absolute; left: 0; right: 0; height: 45%;
+  background: linear-gradient(to bottom, transparent, rgba(147,51,234,0.025) 50%, transparent);
+  will-change: transform;
+  animation: pgCardScan 8s ease-in-out infinite;
 }
+@keyframes pgCardScan {
+  0%{transform:translateY(-120%);opacity:0} 15%{opacity:1}
+  85%{opacity:1} 100%{transform:translateY(260%);opacity:0}
+}
+
+/* Content layers above bg */
+.pg-strip, .pg-body, .pg-footer { position: relative; z-index: 2; }
+
+/* Top strip */
+.pg-strip {
+  padding: 10px 20px; border-bottom: 1px solid rgba(147,51,234,0.1);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.pg-node { font-size:9px; font-weight:500; color:rgba(34,211,238,0.55); letter-spacing:.14em; }
+.pg-armed { display:flex; align-items:center; gap:5px; font-size:9px; color:rgba(34,197,94,0.7); letter-spacing:.1em; }
+.pg-armed-dot {
+  width:5px; height:5px; border-radius:50%; background:#22c55e;
+  will-change:opacity; animation:pgBlink 2.2s ease-in-out infinite;
+}
+@keyframes pgBlink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+/* Body */
+.pg-body { padding:36px 44px 28px; display:flex; flex-direction:column; align-items:center; }
+
+/* Logo */
+.pg-logo-wrap {
+  position:relative; width:76px; height:76px;
+  display:flex; align-items:center; justify-content:center; margin-bottom:20px;
+}
+.pg-logo-wrap::before {
+  content:''; position:absolute; inset:-4px; border-radius:50%;
+  border:2px solid transparent; border-top-color:#22d3ee; border-right-color:rgba(34,211,238,0.25);
+  will-change:transform; animation:pgSpin 2.5s linear infinite;
+}
+.pg-logo-wrap::after {
+  content:''; position:absolute; inset:3px; border-radius:50%;
+  border:1px dashed rgba(147,51,234,0.2);
+}
+@keyframes pgSpin { to{transform:rotate(360deg)} }
+.pg-logo-glow {
+  position:absolute; inset:-14px; border-radius:50%;
+  background:radial-gradient(circle, rgba(147,51,234,0.25) 0%, transparent 70%);
+  will-change:opacity; animation:pgGlow 4s ease-in-out infinite;
+}
+@keyframes pgGlow { 0%,100%{opacity:.4} 50%{opacity:1} }
+.pg-logo-core {
+  width:62px; height:62px; border-radius:50%;
+  background:linear-gradient(145deg, rgba(88,28,220,0.3), rgba(4,0,14,0.85));
+  border:1px solid rgba(147,51,234,0.28);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.pg-logo-core svg { width:26px; height:26px; color:#c084fc; filter:drop-shadow(0 0 12px rgba(147,51,234,0.75)); }
+
+/* Brand */
+.pg-brand { font-size:18px; font-weight:700; color:#e2e8f0; letter-spacing:.03em; margin-bottom:4px; }
+.pg-brand em { font-style:normal; color:#9333ea; }
+.pg-tag { font-size:9px; font-weight:300; color:rgba(148,163,184,0.4); letter-spacing:.18em; text-transform:uppercase; margin-bottom:28px; }
+
+/* Divider */
+.pg-divider {
+  width:100%; height:1px; margin-bottom:28px; position:relative;
+  background:linear-gradient(90deg, transparent, rgba(147,51,234,0.14) 30%, rgba(147,51,234,0.14) 70%, transparent);
+}
+.pg-divider::before, .pg-divider::after {
+  content:''; position:absolute; top:50%; transform:translateY(-50%);
+  width:3px; height:3px; border-radius:50%; background:rgba(147,51,234,0.45);
+}
+.pg-divider::before { left:30%; }
+.pg-divider::after  { right:30%; }
+
+/* PIN label */
+.pg-label { font-size:9px; font-weight:500; color:rgba(148,163,184,0.4); letter-spacing:.22em; text-transform:uppercase; margin-bottom:22px; }
+
+/* PIN dots */
+.pin-dots { display:flex; gap:24px; margin-bottom:16px; }
 .pin-dot {
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: var(--surface3);
-  border: 1.5px solid var(--border-l);
-  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+  width:20px; height:20px; border-radius:50%;
+  border:1.5px solid rgba(147,51,234,0.2); background:transparent;
+  will-change:transform;
+  transition:transform .26s cubic-bezier(0.34,1.56,0.64,1), background .18s ease, border-color .18s ease;
 }
-.pin-dot.filled {
-  background: var(--red);
-  border-color: var(--red);
-  box-shadow: 0 0 10px var(--red-glow);
-  transform: scale(1.15);
+.pin-dot:not(.filled):not(.success) { animation:pgDotIdle 3.5s ease-in-out infinite; }
+.pin-dot:nth-child(2){animation-delay:.18s}
+.pin-dot:nth-child(3){animation-delay:.36s}
+.pin-dot:nth-child(4){animation-delay:.54s}
+@keyframes pgDotIdle {
+  0%,100%{border-color:rgba(147,51,234,0.18)} 50%{border-color:rgba(147,51,234,0.48)}
 }
-.pin-dot.success {
-  background: var(--green);
-  border-color: var(--green);
-  box-shadow: 0 0 12px rgba(16,185,129,0.5);
-  transform: scale(1.15);
-}
+.pin-dot.filled  { background:#9333ea; border-color:#9333ea; transform:scale(1.2); }
+.pin-dot.success { background:#22c55e !important; border-color:#22c55e !important; transform:scale(1.15) !important; }
 
+/* Message */
 .pin-msg {
-  font-size: 11.5px;
-  color: var(--red);
-  min-height: 18px;
-  margin-bottom: 24px;
+  min-height:15px; font-size:9.5px; font-weight:500;
+  letter-spacing:.12em; text-transform:uppercase;
+  color:rgba(248,113,113,0.85); margin-bottom:28px;
 }
 
-.pin-keypad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+/* Footer */
+.pg-footer { padding:11px 20px; border-top:1px solid rgba(147,51,234,0.1); display:flex; align-items:center; justify-content:center; }
+.pg-foot-item {
+  display:flex; align-items:center; gap:5px;
+  font-size:8.5px; font-weight:300; color:rgba(148,163,184,0.28); letter-spacing:.08em; padding:0 14px;
 }
-.pk {
-  height: 58px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text);
-  font-size: 20px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
-  -webkit-tap-highlight-color: transparent;
-}
-.pk:hover  { background: var(--surface3); }
-.pk:active { transform: scale(0.92); box-shadow: 0 0 0 2px var(--red-dim); }
-.pk.pk-ghost { font-size: 16px; color: var(--text-sec); }
+.pg-foot-item + .pg-foot-item { border-left:1px solid rgba(147,51,234,0.08); }
+.pg-foot-item svg { width:8px; height:8px; color:rgba(147,51,234,0.3); flex-shrink:0; }
 
-@keyframes pinShake {
-  0%,100% { transform: translateX(0); }
-  15%     { transform: translateX(-10px); }
-  30%     { transform: translateX( 10px); }
-  45%     { transform: translateX(-7px);  }
-  60%     { transform: translateX( 7px);  }
-  75%     { transform: translateX(-3px);  }
-  90%     { transform: translateX( 3px);  }
+/* Access granted overlay */
+.pg-granted {
+  position:absolute; inset:0; border-radius:22px;
+  background:rgba(4,0,14,0.96);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  opacity:0; pointer-events:none; transition:opacity .4s ease; z-index:30;
 }
+.pg-granted.show { opacity:1; pointer-events:all; }
+.pg-granted-ring {
+  width:68px; height:68px; border-radius:50%; border:1.5px solid #22c55e;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 0 0 5px rgba(34,197,94,0.08), 0 0 36px rgba(34,197,94,0.22);
+  animation:pgGrantedPop .5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes pgGrantedPop { from{transform:scale(.4);opacity:0} to{transform:scale(1);opacity:1} }
+.pg-granted-ring svg { width:26px; height:26px; color:#22c55e; }
+.pg-granted-text { font-size:11px; font-weight:600; color:#22c55e; letter-spacing:.2em; text-transform:uppercase; }
+.pg-granted-sub  { font-size:9px; font-weight:300; color:rgba(148,163,184,0.4); letter-spacing:.1em; }
 
-@keyframes pinSuccessPulse {
-  0%   { transform: scale(1);    box-shadow: 0 0  0px rgba(16,185,129,0);   }
-  50%  { transform: scale(1.03); box-shadow: 0 0 40px rgba(16,185,129,0.3); }
-  100% { transform: scale(1);    box-shadow: 0 0  0px rgba(16,185,129,0);   }
+@media (prefers-reduced-motion:reduce) {
+  .pg-grid,.pg-orb,.pg-scan,.pg-card-scan::before,.pg-logo-wrap::before,.pg-logo-glow,.pg-armed-dot,.pin-dot
+  { animation-duration:.01ms !important; }
 }
 
 :root {

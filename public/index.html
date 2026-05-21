@@ -7,48 +7,88 @@
   <title>ShieldWatch — UADR Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dashboard.css">
 </head>
 <body>
 
 <!-- ═══ PIN GATE ══════════════════════════════════════════════════════════════ -->
 <div class="pin-gate" id="pinGate">
+
+  <!-- Background -->
+  <div class="pg-grid"></div>
+  <div class="pg-orb pg-orb-1"></div>
+  <div class="pg-orb pg-orb-2"></div>
+  <div class="pg-orb pg-orb-3"></div>
+  <div class="pg-scan pg-scan-1"></div>
+  <div class="pg-scan pg-scan-2"></div>
+
   <div class="pin-card">
 
-    <!-- Logo -->
-    <div class="pin-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      </svg>
-    </div>
-    <div class="pin-brand">ShieldWatch <span>UADR</span></div>
-    <div class="pin-subtitle" id="pinSubtitle">Enter PIN to access dashboard</div>
+    <!-- Inner body scan -->
+    <div class="pg-card-scan"></div>
 
-    <!-- 4-dot indicator -->
-    <div class="pin-dots" id="pinDots">
-      <div class="pin-dot" id="pd0"></div>
-      <div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div>
-      <div class="pin-dot" id="pd3"></div>
+    <!-- Access granted overlay -->
+    <div class="pg-granted" id="pgGranted">
+      <div class="pg-granted-ring">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div class="pg-granted-text">Access Granted</div>
+      <div class="pg-granted-sub">Loading dashboard…</div>
     </div>
 
-    <div class="pin-msg" id="pinMsg"></div>
+    <!-- Top strip -->
+    <div class="pg-strip">
+      <span class="pg-node">NODE: CEREBRO-01</span>
+      <span class="pg-armed"><span class="pg-armed-dot"></span>SYSTEM ARMED</span>
+    </div>
 
-    <!-- Numeric keypad -->
-    <div class="pin-keypad">
-      <button class="pk" data-d="1">1</button>
-      <button class="pk" data-d="2">2</button>
-      <button class="pk" data-d="3">3</button>
-      <button class="pk" data-d="4">4</button>
-      <button class="pk" data-d="5">5</button>
-      <button class="pk" data-d="6">6</button>
-      <button class="pk" data-d="7">7</button>
-      <button class="pk" data-d="8">8</button>
-      <button class="pk" data-d="9">9</button>
-      <button class="pk pk-ghost" id="pkClear">✕</button>
-      <button class="pk" data-d="0">0</button>
-      <button class="pk pk-ghost" id="pkBack">⌫</button>
+    <!-- Body -->
+    <div class="pg-body">
+
+      <div class="pg-logo-wrap">
+        <div class="pg-logo-glow"></div>
+        <div class="pg-logo-core">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="pg-brand">ShieldWatch <em>UADR</em></div>
+      <div class="pg-tag">Runtime Application Self-Protection</div>
+
+      <div class="pg-divider"></div>
+
+      <div class="pg-label">Identity Verification</div>
+
+      <div class="pin-dots" id="pinDots">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+
+      <div class="pin-msg" id="pinMsg"></div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="pg-footer">
+      <div class="pg-foot-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        HMAC-SHA256
+      </div>
+      <div class="pg-foot-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        RASP v2.0
+      </div>
+      <div class="pg-foot-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        SESSION BOUND
+      </div>
     </div>
 
   </div>

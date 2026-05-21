@@ -14,10 +14,10 @@
     return;
   }
 
-  const dots     = [0,1,2,3].map(i => document.getElementById('pd' + i));
-  const msgEl    = document.getElementById('pinMsg');
-  const subtitle = document.getElementById('pinSubtitle');
-  const card     = gate.querySelector('.pin-card');
+  const dots    = [0,1,2,3].map(i => document.getElementById('pd' + i));
+  const msgEl   = document.getElementById('pinMsg');
+  const card    = gate.querySelector('.pin-card');
+  const granted = document.getElementById('pgGranted');
 
   let pin      = '';
   let locked   = false;
@@ -36,11 +36,11 @@
 
   function showSuccess() {
     dots.forEach(d => { d.classList.remove('filled'); d.classList.add('success'); });
-    card.classList.add('success');
+    if (granted) granted.classList.add('show');
     setTimeout(() => {
       gate.classList.add('hidden');
       setTimeout(() => { gate.style.display = 'none'; }, 450);
-    }, 620);
+    }, 1000);
   }
 
   function setMsg(text, color) {
@@ -74,7 +74,6 @@
   /* ── lockdown countdown ── */
   function startLockdown(secsLeft) {
     locked = true;
-    subtitle.textContent = 'Too many attempts';
     let secs = secsLeft;
 
     function tick() {
@@ -85,7 +84,6 @@
         pin    = '';
         updateDots();
         setMsg('');
-        subtitle.textContent = 'Enter PIN to access dashboard';
         return;
       }
       secs--;
@@ -134,13 +132,6 @@
       setMsg('Connection error — try again');
     }
   }
-
-  /* ── keypad clicks ── */
-  document.querySelectorAll('.pk[data-d]').forEach(btn => {
-    btn.addEventListener('click', () => appendDigit(btn.dataset.d));
-  });
-  document.getElementById('pkBack').addEventListener('click', backspace);
-  document.getElementById('pkClear').addEventListener('click', clearPin);
 
   /* ── physical keyboard ── */
   document.addEventListener('keydown', e => {
