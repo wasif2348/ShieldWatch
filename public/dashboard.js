@@ -227,14 +227,15 @@ socket.on('attackers_update', (attackers) => {
 });
 
 socket.on('reset', () => {
-  $('feed').innerHTML = '<div class="feed-empty" id="feedEmpty"><div class="feed-empty-icon">🛡️</div><div>Monitoring NexaChat — no threats detected</div><div class="feed-empty-sub">Attacks will appear here in real-time</div></div>';
-  $('attackerList').innerHTML = '<div class="attack-empty">No attackers identified</div>';
-  $('attackTypes').innerHTML  = '<div class="attack-empty">No attacks detected yet</div>';
+  $('feedList').innerHTML = '<div class="feed-empty" id="feedEmpty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="52" height="52"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><div>Monitoring NexaChat — no threats detected</div><div style="font-size:9px;margin-top:4px;letter-spacing:.04em">Attacks will appear here in real-time</div></div>';
+  $('attackerList').innerHTML = '<div class="att-empty">No attackers identified</div>';
+  $('attackTypes').innerHTML  = '<div class="at-empty">No attacks detected yet</div>';
   allAttackers = [];
   selectedSession = null;
-  $('profileEmpty').classList.remove('hidden');
+  $('profileEmpty').style.display = '';
+  $('profileContent').style.display = 'none';
   $('profileContent').classList.add('hidden');
-  ['cntTotal','cntBlocked','cntDecoys','cntAttackers','statTotal','statBlocked','statDecoys','statLogged'].forEach(id => { $(id).textContent = '0'; });
+  ['cntTotal','cntBlocked','cntAttackers','statTotal','statBlocked','statLogged'].forEach(id => { $(id).textContent = '0'; });
 });
 
 // ─── Status ───────────────────────────────────────────────────────────────────
@@ -265,11 +266,9 @@ async function fetchStats() {
     const s = await r.json();
     animateNum('cntTotal',    s.total);
     animateNum('cntBlocked',  s.blocked);
-    animateNum('cntDecoys',   s.decoys);
     animateNum('cntAttackers',s.attackers);
     animateNum('statTotal',   s.total);
     animateNum('statBlocked', s.blocked);
-    animateNum('statDecoys',  s.decoys);
     animateNum('statLogged',  s.logged);
     renderAttackTypes(s.byType, s.total);
   } catch {}
@@ -320,22 +319,18 @@ function attackMeta(type) {
 function renderAttackTypes(byType, total) {
   const el = $('attackTypes');
   const entries = Object.entries(byType).sort((a,b) => b[1]-a[1]);
-  if (!entries.length) { el.innerHTML = '<div class="attack-empty">No attacks detected yet</div>'; return; }
+  if (!entries.length) { el.innerHTML = '<div class="at-empty">No attacks detected yet</div>'; return; }
 
   el.innerHTML = entries.map(([type, count]) => {
-    const pct  = total > 0 ? Math.round((count / total) * 100) : 0;
+    const pct  = total > 0 ? count / total : 0;
     const meta = attackMeta(type);
     return `
-      <div class="attack-type-row">
-        <span class="attack-type-icon">${meta.icon}</span>
-        <div style="flex:1">
-          <div style="display:flex;align-items:center">
-            <span class="attack-type-name">${meta.label}</span>
-            <span class="attack-type-count" style="color:${meta.color}">${count}</span>
-          </div>
-          <div class="attack-type-bar">
-            <div class="attack-type-bar-fill" style="width:${pct}%;background:${meta.color}"></div>
-          </div>
+      <div class="at-item">
+        <div class="at-dot" style="background:${meta.color}"></div>
+        <span class="at-name">${meta.label}</span>
+        <span class="at-cnt" style="color:${meta.color}">${count}</span>
+        <div class="at-bar-track">
+          <div class="at-bar-fill" style="background:${meta.color};transform:scaleX(${pct.toFixed(3)})"></div>
         </div>
       </div>`;
   }).join('');
@@ -343,16 +338,26 @@ function renderAttackTypes(byType, total) {
 
 function renderAttackerList(attackers) {
   const el = $('attackerList');
-  if (!attackers.length) { el.innerHTML = '<div class="attack-empty">No attackers identified</div>'; return; }
+  if (!attackers.length) { el.innerHTML = '<div class="att-empty">No attackers identified</div>'; return; }
 
-  el.innerHTML = attackers.map(a => `
-    <div class="attacker-chip ${a.session === selectedSession ? 'selected' : ''}"
+  el.innerHTML = attackers.map(a => {
+    const geo = a.geo || {};
+    const loc = [geo.city, geo.country_name].filter(Boolean).join(' · ') || a.ip || '—';
+    return `
+    <div class="att-item ${a.session === selectedSession ? 'active' : ''}"
          onclick="selectAttacker(${JSON.stringify(a).replace(/"/g,'&quot;')})">
-      <div class="attacker-dot" style="background:${a.threat?.color || '#10b981'}"></div>
-      <span class="attacker-name">${escHtml(a.session)}</span>
-      <span class="attacker-score">${a.threatScore}</span>
-    </div>`
-  ).join('');
+      <div class="att-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <div class="att-info">
+        <div class="att-ip">${escHtml(a.ip || a.session)}</div>
+        <div class="att-meta">${escHtml(loc)}</div>
+      </div>
+      <div class="att-cnt-badge" style="background:${(a.threat?.color||'#ef4444')}18;border-color:${(a.threat?.color||'#ef4444')}30;color:${(a.threat?.color||'#ef4444')}">${a.threatScore}</div>
+    </div>`;
+  }).join('');
 }
 
 // ─── Feed ─────────────────────────────────────────────────────────────────────
@@ -360,29 +365,32 @@ function prependFeedItem(evt, animate) {
   const feedEmpty = $('feedEmpty');
   if (feedEmpty) feedEmpty.remove();
 
-  const feed  = $('feed');
+  const feed  = $('feedList');
   const item  = document.createElement('div');
-  item.className = `feed-item verdict-${evt.verdict || 'LOGGED'}`;
-  item.style.animationDuration = animate ? '0.25s' : '0s';
+  item.className = 'fi';
+  if (!animate) item.style.animationDuration = '0s';
 
   const threatType = evt.threat?.type || 'unknown';
   const payload    = evt.threat?.raw  || '';
-  const time       = new Date(evt.timestamp || evt.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const time       = new Date(evt.timestamp || evt.receivedAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
   const meta       = attackMeta(threatType);
+  const verdict    = evt.verdict || 'LOGGED';
+  const isBlocked  = verdict === 'BLOCKED';
 
   item.innerHTML = `
-    <div class="feed-item-top">
-      <span class="feed-verdict">${evt.verdict || 'LOGGED'}</span>
-      <span class="feed-type">${meta.icon} ${meta.label}</span>
-      <span class="feed-time">${time}</span>
-    </div>
-    <div class="feed-detail">
-      <span class="feed-path">${escHtml(evt.method || 'HTTP')} ${escHtml(evt.path || '/')}</span>
-      <span class="feed-sep">•</span>
-      <span class="feed-session">${escHtml(evt.session || evt.ip || 'unknown')}</span>
-    </div>
-    ${payload ? `<div class="feed-payload">${escHtml(payload.slice(0, 120))}</div>` : ''}
-  `;
+    <div class="fi-accent" style="background:${meta.color}"></div>
+    <div class="fi-body">
+      <div class="fi-top">
+        <span class="fi-badge" style="background:${meta.color}18;color:${meta.color};border:1px solid ${meta.color}30">${meta.label.toUpperCase()}</span>
+        <span class="fi-verdict ${isBlocked ? 'fi-blocked' : 'fi-logged'}">${verdict}</span>
+        <span class="fi-time">${time}</span>
+      </div>
+      <div class="fi-path">${escHtml(evt.method || 'HTTP')} ${escHtml(evt.path || '/')}</div>
+      <div class="fi-meta">
+        <span class="fi-ip">${escHtml(evt.ip || evt.session || 'unknown')}</span>
+        ${payload ? `<span class="fi-payload">${escHtml(payload.slice(0,80))}</span>` : ''}
+      </div>
+    </div>`;
 
   item.addEventListener('click', () => {
     const attacker = allAttackers.find(a => a.session === (evt.session || evt.ip));
@@ -390,8 +398,6 @@ function prependFeedItem(evt, animate) {
   });
 
   feed.insertBefore(item, feed.firstChild);
-
-  // Keep feed trim
   while (feed.children.length > 100) feed.removeChild(feed.lastChild);
 }
 
@@ -408,20 +414,22 @@ function selectAttacker(attacker) {
 }
 
 function renderProfile(a) {
-  $('profileEmpty').classList.add('hidden');
-  $('profileContent').classList.remove('hidden');
+  $('profileEmpty').style.display = 'none';
+  const pc = $('profileContent');
+  pc.classList.remove('hidden');
+  pc.style.display = 'flex';
   updateBlockBtn(a);
 
   // ── Threat Score Ring ──
   const score   = a.threatScore || 0;
   const level   = a.threat || { label: 'LOW', color: '#10b981' };
-  const circumf = 264;
+  const circumf = 188;
   const offset  = circumf - (score / 100) * circumf;
 
   $('scoreValue').textContent = score;
   $('scoreLevel').textContent = level.label;
   $('scoreLevel').style.color = level.color;
-  $('scoreCard').style.borderColor = level.color + '44';
+  $('scoreCard').style.borderLeftColor = level.color;
 
   const ring = $('scoreRing');
   ring.style.strokeDashoffset = offset;
