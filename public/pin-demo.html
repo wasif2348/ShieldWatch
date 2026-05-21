@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShieldWatch UADR — Secure Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --purple:   #9333ea;
+      --purple-h: rgba(147,51,234,0.55);
+      --purple-d: rgba(147,51,234,0.14);
+      --cyan:     #22d3ee;
+      --cyan-d:   rgba(34,211,238,0.12);
+      --red:      #ef4444;
+      --green:    #22c55e;
+      --text:     #e2e8f0;
+      --muted:    rgba(148,163,184,0.4);
+      --line:     rgba(147,51,234,0.1);
+    }
+
+    body {
+      min-height: 100vh;
+      background: #020008;
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       BACKGROUND LAYER
+       All animations: transform / opacity only → GPU composited, zero jitter
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+    /* Grid */
+    .bg-grid {
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(147,51,234,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(147,51,234,0.04) 1px, transparent 1px);
+      background-size: 52px 52px;
+      will-change: transform;
+      animation: gridDrift 32s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes gridDrift {
+      from { transform: translateY(0); }
+      to   { transform: translateY(52px); }
+    }
+
+    /* Orbs — opacity + gentle drift, no filter animation */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+    .orb-1 {
+      width: 540px; height: 540px;
+      background: radial-gradient(circle, rgba(109,40,217,0.2) 0%, transparent 65%);
+      top: -180px; left: -160px;
+      animation: orbA 14s ease-in-out infinite;
+    }
+    .orb-2 {
+      width: 440px; height: 440px;
+      background: radial-gradient(circle, rgba(239,68,68,0.1) 0%, transparent 65%);
+      bottom: -120px; right: -120px;
+      animation: orbB 18s ease-in-out infinite;
+    }
+    .orb-3 {
+      width: 320px; height: 320px;
+      background: radial-gradient(circle, rgba(34,211,238,0.07) 0%, transparent 65%);
+      top: 40%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation: orbC 22s ease-in-out infinite;
+    }
+    @keyframes orbA {
+      0%,100% { transform: translate(0,0) scale(1);    opacity: 0.7; }
+      33%      { transform: translate(28px,20px) scale(1.06); opacity: 0.95; }
+      66%      { transform: translate(-16px,32px) scale(0.97); opacity: 0.75; }
+    }
+    @keyframes orbB {
+      0%,100% { transform: translate(0,0) scale(1);    opacity: 0.6; }
+      40%      { transform: translate(-24px,-18px) scale(1.08); opacity: 0.9; }
+      75%      { transform: translate(18px,-28px) scale(0.96); opacity: 0.65; }
+    }
+    @keyframes orbC {
+      0%,100% { opacity: 0.4; transform: translate(-50%,-50%) scale(1); }
+      50%      { opacity: 0.8; transform: translate(-50%,-50%) scale(1.15); }
+    }
+
+    /* Scanlines — two at different speeds & opacities */
+    .scan {
+      position: fixed; left: 0; right: 0; top: 0;
+      pointer-events: none;
+      will-change: transform;
+    }
+    .scan-1 {
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent, rgba(34,211,238,0.18) 30%, rgba(34,211,238,0.3) 50%, rgba(34,211,238,0.18) 70%, transparent);
+      animation: scanMove 7s linear infinite;
+    }
+    .scan-2 {
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent, rgba(147,51,234,0.1) 40%, rgba(147,51,234,0.18) 50%, rgba(147,51,234,0.1) 60%, transparent);
+      animation: scanMove 13s linear infinite;
+      animation-delay: -5s;
+    }
+    @keyframes scanMove {
+      from { transform: translateY(-2px); }
+      to   { transform: translateY(100vh); }
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       CARD
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .card {
+      position: relative;
+      z-index: 10;
+      width: 400px;
+      background: rgba(6, 0, 18, 0.92);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border-radius: 22px;
+      border: 1px solid rgba(147,51,234,0.2);
+      overflow: hidden; /* clips the radar sweep */
+      box-shadow:
+        0 0 0 1px rgba(147,51,234,0.05),
+        0 0 80px rgba(88,28,220,0.12),
+        0 40px 100px rgba(0,0,0,0.75),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    /* Top border highlight */
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 15%; right: 15%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(147,51,234,0.6), transparent);
+      z-index: 1;
+    }
+
+
+    /* Inner body scan — soft light sweeping vertically */
+    .card-scan {
+      position: absolute;
+      inset: 0; z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .card-scan::before {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 45%;
+      background: linear-gradient(
+        to bottom,
+        transparent,
+        rgba(147,51,234,0.025) 50%,
+        transparent
+      );
+      will-change: transform;
+      animation: cardScan 8s ease-in-out infinite;
+    }
+    @keyframes cardScan {
+      0%   { transform: translateY(-120%); opacity: 0; }
+      15%  { opacity: 1; }
+      85%  { opacity: 1; }
+      100% { transform: translateY(260%); opacity: 0; }
+    }
+
+    /* All card content needs z-index > 0 to sit above bg effects */
+    .card-strip,
+    .card-body,
+    .card-footer { position: relative; z-index: 2; }
+
+    /* ── Top strip ── */
+    .card-strip {
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .strip-node {
+      font-size: 9px;
+      font-weight: 500;
+      color: rgba(34,211,238,0.55);
+      letter-spacing: 0.14em;
+    }
+    .strip-armed {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 9px;
+      color: rgba(34,197,94,0.7);
+      letter-spacing: 0.1em;
+    }
+    .armed-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--green);
+      will-change: opacity;
+      animation: blink 2.2s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.2; }
+    }
+
+    /* ── Card body ── */
+    .card-body {
+      padding: 36px 44px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Logo ── */
+    .logo-wrap {
+      position: relative;
+      width: 76px; height: 76px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+    }
+    /* Spinning arc */
+    .logo-wrap::before {
+      content: '';
+      position: absolute; inset: -4px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--cyan);
+      border-right-color: rgba(34,211,238,0.25);
+      will-change: transform;
+      animation: spin 2.5s linear infinite;
+    }
+    /* Static dashed ring */
+    .logo-wrap::after {
+      content: '';
+      position: absolute; inset: 3px;
+      border-radius: 50%;
+      border: 1px dashed rgba(147,51,234,0.2);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .logo-glow {
+      position: absolute; inset: -14px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(147,51,234,0.25) 0%, transparent 70%);
+      will-change: opacity;
+      animation: glowPulse 4s ease-in-out infinite;
+    }
+    @keyframes glowPulse {
+      0%,100% { opacity: 0.4; }
+      50%      { opacity: 1; }
+    }
+
+    .logo-core {
+      width: 62px; height: 62px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, rgba(88,28,220,0.3), rgba(4,0,14,0.85));
+      border: 1px solid rgba(147,51,234,0.28);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .logo-core svg {
+      width: 26px; height: 26px;
+      color: #c084fc;
+      filter: drop-shadow(0 0 12px rgba(147,51,234,0.75));
+    }
+
+    /* ── Brand ── */
+    .brand-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+    .brand-name em { font-style: normal; color: var(--purple); }
+    .brand-sub {
+      font-size: 9px;
+      font-weight: 300;
+      color: var(--muted);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--purple-d) 30%, var(--purple-d) 70%, transparent);
+      margin-bottom: 28px;
+      position: relative;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      position: absolute;
+      top: 50%; transform: translateY(-50%);
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: rgba(147,51,234,0.45);
+    }
+    .divider::before { left: 30%; }
+    .divider::after  { right: 30%; }
+
+    /* ── PIN label ── */
+    .pin-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      margin-bottom: 22px;
+    }
+
+    /* ── PIN dots ── */
+    .pin-dots {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+    .pin-dot {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(147,51,234,0.2);
+      background: transparent;
+      will-change: transform;
+      transition:
+        transform 0.26s cubic-bezier(0.34,1.56,0.64,1),
+        background  0.18s ease,
+        border-color 0.18s ease;
+    }
+    /* Subtle idle wave */
+    .pin-dot:not(.filled):not(.error):not(.success) {
+      animation: dotIdle 3.5s ease-in-out infinite;
+    }
+    .pin-dot:nth-child(2) { animation-delay: 0.18s; }
+    .pin-dot:nth-child(3) { animation-delay: 0.36s; }
+    .pin-dot:nth-child(4) { animation-delay: 0.54s; }
+    @keyframes dotIdle {
+      0%,100% { border-color: rgba(147,51,234,0.18); }
+      50%      { border-color: rgba(147,51,234,0.48); }
+    }
+    .pin-dot.filled {
+      background: var(--purple);
+      border-color: var(--purple);
+      transform: scale(1.2);
+      /* transition handles the spring — no animation loop, no jitter */
+    }
+    .pin-dot.error {
+      background: var(--red) !important;
+      border-color: var(--red) !important;
+      transform: scale(1) !important;
+    }
+    .pin-dot.success {
+      background: var(--green) !important;
+      border-color: var(--green) !important;
+      transform: scale(1.15) !important;
+    }
+
+    /* Shake — translateX only */
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      15%      { transform: translateX(-8px); }
+      35%      { transform: translateX(7px); }
+      55%      { transform: translateX(-5px); }
+      75%      { transform: translateX(3px); }
+      90%      { transform: translateX(-2px); }
+    }
+    .shake { animation: shake 0.48s ease; }
+
+    /* ── Status message ── */
+    .pin-msg {
+      min-height: 15px;
+      font-size: 9.5px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: transparent;
+      margin-bottom: 28px;
+      transition: color 0.2s ease;
+    }
+    .pin-msg.err { color: var(--red); }
+    .pin-msg.ok  { color: var(--green); }
+
+    /* ── Footer ── */
+    .card-footer {
+      padding: 11px 20px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .foot-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 8.5px;
+      font-weight: 300;
+      color: rgba(148,163,184,0.28);
+      letter-spacing: 0.08em;
+      padding: 0 14px;
+    }
+    .foot-item + .foot-item { border-left: 1px solid rgba(147,51,234,0.08); }
+    .foot-item svg { width: 8px; height: 8px; color: rgba(147,51,234,0.3); flex-shrink: 0; }
+
+    /* ── Access granted overlay ── */
+    .granted-overlay {
+      position: absolute; inset: 0;
+      border-radius: 22px;
+      background: rgba(4, 0, 14, 0.96);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      z-index: 30;
+    }
+    .granted-overlay.show { opacity: 1; pointer-events: all; }
+
+    .granted-ring {
+      width: 68px; height: 68px;
+      border-radius: 50%;
+      border: 1.5px solid var(--green);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 5px rgba(34,197,94,0.08), 0 0 36px rgba(34,197,94,0.22);
+      animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.4); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .granted-ring svg { width: 26px; height: 26px; color: var(--green); }
+    .granted-text {
+      font-size: 11px; font-weight: 600;
+      color: var(--green);
+      letter-spacing: 0.2em; text-transform: uppercase;
+    }
+    .granted-sub {
+      font-size: 9px; font-weight: 300;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background -->
+  <div class="bg-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="scan scan-1"></div>
+  <div class="scan scan-2"></div>
+
+  <div class="card">
+
+    <!-- Inner scan (GPU-only, behind all content) -->
+    <div class="card-scan"></div>
+
+    <!-- Access granted overlay -->
+    <div class="granted-overlay" id="grantedOverlay">
+      <div class="granted-ring">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div class="granted-text">Access Granted</div>
+      <div class="granted-sub">Loading dashboard…</div>
+    </div>
+
+    <!-- Top strip -->
+    <div class="card-strip">
+      <span class="strip-node">NODE: CEREBRO-01</span>
+      <span class="strip-armed">
+        <span class="armed-dot"></span>SYSTEM ARMED
+      </span>
+    </div>
+
+    <!-- Body -->
+    <div class="card-body">
+
+      <div class="logo-wrap">
+        <div class="logo-glow"></div>
+        <div class="logo-core">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="brand-name">ShieldWatch <em>UADR</em></div>
+      <div class="brand-sub">Runtime Application Self-Protection</div>
+
+      <div class="divider"></div>
+
+      <div class="pin-label">Identity Verification</div>
+
+      <div class="pin-dots" id="pinDots">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+
+      <div class="pin-msg" id="pinMsg"></div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="card-footer">
+      <div class="foot-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
+        HMAC-SHA256
+      </div>
+      <div class="foot-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        RASP v2.0
+      </div>
+      <div class="foot-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        SESSION BOUND
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const CORRECT = '2348';
+    let entered = '';
+    let locked  = false;
+
+    document.addEventListener('keydown', e => {
+      if (locked) return;
+      if (e.key >= '0' && e.key <= '9') pressKey(e.key);
+      if (e.key === 'Backspace') backspace();
+      if (e.key === 'Escape' || e.key === 'Delete') clearPin();
+    });
+
+    function pressKey(d) {
+      if (entered.length >= 4) return;
+      entered += d;
+      render();
+      if (entered.length === 4) { locked = true; setTimeout(check, 280); }
+    }
+
+    function render() {
+      for (let i = 0; i < 4; i++) {
+        const dot = document.getElementById('pd' + i);
+        dot.classList.remove('error', 'success');
+        dot.classList.toggle('filled', i < entered.length);
+      }
+    }
+
+    function clearPin() {
+      entered = ''; locked = false;
+      render(); msg('', '');
+    }
+
+    function backspace() {
+      if (!entered.length) return;
+      entered = entered.slice(0, -1);
+      render();
+    }
+
+    function check() {
+      if (entered === CORRECT) {
+        for (let i = 0; i < 4; i++) {
+          const d = document.getElementById('pd' + i);
+          d.classList.remove('filled'); d.classList.add('success');
+        }
+        msg('Access granted', 'ok');
+        setTimeout(() => document.getElementById('grantedOverlay').classList.add('show'), 420);
+      } else {
+        for (let i = 0; i < 4; i++) document.getElementById('pd' + i).classList.add('error');
+        document.getElementById('pinDots').classList.add('shake');
+        msg('Incorrect PIN', 'err');
+        setTimeout(() => {
+          document.getElementById('pinDots').classList.remove('shake');
+          clearPin();
+        }, 620);
+      }
+    }
+
+    function msg(text, cls) {
+      const el = document.getElementById('pinMsg');
+      el.textContent = text;
+      el.className = 'pin-msg ' + cls;
+    }
+  </script>
+</body>
+</html>
