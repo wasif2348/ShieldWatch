@@ -16,6 +16,7 @@ const { Server } = require('socket.io');
 const path       = require('path');
 const cors       = require('cors');
 const crypto     = require('crypto');
+const fs         = require('fs');
 
 // ─── PIN + Session config (must be before io middleware) ──────────────────────
 const PIN_CODE    = process.env.SW_PIN || '2348';
@@ -26,6 +27,146 @@ const validTokens = new Set();
 function computeHmacToken() {
   return crypto.createHmac('sha256', PIN_CODE + 'shieldwatch-uadr-secret')
                .digest('hex');
+}
+
+// ─── Encrypted Audit Log (AES-256-GCM + HMAC-SHA256 chain) ───────────────────
+//
+//  Every attack event is:
+//    1. Serialised to JSON
+//    2. Encrypted with AES-256-GCM (random 12-byte IV per entry)
+//    3. Given an HMAC: mac = HMAC-SHA256( prevMac ‖ iv ‖ ciphertext+tag )
+//
+//  The HMAC chain means editing ANY past entry breaks every subsequent MAC.
+//  Tampering is detected at read-time.
+//
+//  Key material: PBKDF2(PIN_CODE, randomSalt, 100 000, 32, sha256)
+//  Salt is stored once in logs/.salt — lost salt means unreadable logs.
+//
+const LOG_DIR   = path.join(__dirname, 'logs');
+const SALT_FILE = path.join(LOG_DIR, '.salt');
+
+if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+
+// Persistent salt — created once on first run, never regenerated
+let _logSalt;
+if (fs.existsSync(SALT_FILE)) {
+  _logSalt = fs.readFileSync(SALT_FILE, 'utf8').trim();
+} else {
+  _logSalt = crypto.randomBytes(32).toString('hex');
+  fs.writeFileSync(SALT_FILE, _logSalt, 'utf8');
+  console.log('[AuditLog] New salt created — logs/.salt  (keep this file safe!)');
+}
+
+// Derive AES-256 key once at startup — 100 000 PBKDF2 iterations
+const LOG_KEY = crypto.pbkdf2Sync(PIN_CODE, _logSalt, 100_000, 32, 'sha256');
+
+// In-memory chain tail per calendar day: date → { prevMac, seq }
+const _chainState = new Map();
+
+function _todayDate() { return new Date().toISOString().slice(0, 10); } // YYYY-MM-DD UTC
+
+function _logFilePath(date) { return path.join(LOG_DIR, `${date}.log`); }
+
+// Load the last line of an existing log file to restore the chain tail
+function _getChainTail(date) {
+  if (_chainState.has(date)) return _chainState.get(date);
+  const file = _logFilePath(date);
+  if (!fs.existsSync(file)) {
+    const s = { prevMac: 'GENESIS', seq: 0 };
+    _chainState.set(date, s);
+    return s;
+  }
+  const lines = fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean);
+  if (!lines.length) {
+    const s = { prevMac: 'GENESIS', seq: 0 };
+    _chainState.set(date, s);
+    return s;
+  }
+  try {
+    const last = JSON.parse(lines[lines.length - 1]);
+    const s    = { prevMac: last.mac, seq: last.seq };
+    _chainState.set(date, s);
+    return s;
+  } catch {
+    const s = { prevMac: 'GENESIS', seq: 0 };
+    _chainState.set(date, s);
+    return s;
+  }
+}
+
+// Encrypt + chain + append one attack event to today's log file
+function writeLogEntry(event) {
+  try {
+    const date  = _todayDate();
+    const state = _getChainTail(date);
+
+    const iv        = crypto.randomBytes(12);
+    const cipher    = crypto.createCipheriv('aes-256-gcm', LOG_KEY, iv);
+    const plaintext = JSON.stringify(event);
+    const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+    const authTag   = cipher.getAuthTag();               // 16-byte GCM tag
+    const data      = Buffer.concat([encrypted, authTag]); // ciphertext ‖ tag
+
+    state.seq += 1;
+
+    // HMAC chain: each MAC covers the previous MAC + this entry's iv + ciphertext+tag
+    const mac = crypto.createHmac('sha256', LOG_KEY)
+      .update(state.prevMac + iv.toString('hex') + data.toString('hex'))
+      .digest('hex');
+
+    fs.appendFileSync(
+      _logFilePath(date),
+      JSON.stringify({ seq: state.seq, iv: iv.toString('hex'), data: data.toString('hex'), mac }) + '\n',
+      'utf8'
+    );
+
+    state.prevMac = mac;
+    _chainState.set(date, state);
+  } catch (err) {
+    console.error('[AuditLog] Write failed:', err.message);
+  }
+}
+
+// Decrypt a day's log file and verify the HMAC chain entry by entry
+function readLogFile(date) {
+  const file = _logFilePath(date);
+  if (!fs.existsSync(file)) return { events: [], intact: true, count: 0 };
+
+  const lines   = fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean);
+  const events  = [];
+  let   intact  = true;
+  let   prevMac = 'GENESIS';
+
+  for (const line of lines) {
+    try {
+      const { seq, iv, data: dataHex, mac } = JSON.parse(line);
+
+      // Verify HMAC chain
+      const expected = crypto.createHmac('sha256', LOG_KEY)
+        .update(prevMac + iv + dataHex)
+        .digest('hex');
+      if (expected !== mac) {
+        intact = false;
+        events.push({ _tampered: true, seq, note: `Chain broken at entry ${seq}` });
+        prevMac = mac;
+        continue;
+      }
+
+      // Decrypt AES-256-GCM
+      const dataBuf = Buffer.from(dataHex, 'hex');
+      const dec     = crypto.createDecipheriv('aes-256-gcm', LOG_KEY, Buffer.from(iv, 'hex'));
+      dec.setAuthTag(dataBuf.slice(-16));
+      const plain = Buffer.concat([dec.update(dataBuf.slice(0, -16)), dec.final()]).toString('utf8');
+
+      events.push(JSON.parse(plain));
+      prevMac = mac;
+    } catch (err) {
+      intact = false;
+      events.push({ _error: true, note: err.message });
+    }
+  }
+
+  return { events, intact, count: events.filter(e => !e._tampered && !e._error).length };
 }
 
 const app    = express();
@@ -224,6 +365,9 @@ app.post('/api/event', async (req, res) => {
   profile.threat      = threatLevel(profile.threatScore);
 
   console.log(`[Event] ${tType.toUpperCase()} | ${evt.verdict} | ${sessionKey} | score:${profile.threatScore}`);
+
+  // Persist to encrypted tamper-evident audit log
+  writeLogEntry(evt);
 
   // Mark NexaChat as active
   const wasConnected = lastNexaChatAt && (Date.now() - lastNexaChatAt) < 300_000;
@@ -448,6 +592,50 @@ app.post('/api/reset', requireAuth, (_req, res) => {
   res.json({ ok: true });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOG — History API (auth required)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// List all days that have log files, newest first
+app.get('/api/history/dates', requireAuth, (_req, res) => {
+  try {
+    const dates = fs.readdirSync(LOG_DIR)
+      .filter(f => /^\d{4}-\d{2}-\d{2}\.log$/.test(f))
+      .map(f => f.replace('.log', ''))
+      .sort()
+      .reverse();
+    res.json({ ok: true, dates });
+  } catch (err) {
+    res.json({ ok: false, error: err.message, dates: [] });
+  }
+});
+
+// Verify HMAC chains across ALL log files — must come BEFORE /:date or Express
+// will match the literal string "verify" as a date parameter.
+app.get('/api/history/verify', requireAuth, (_req, res) => {
+  try {
+    const files   = fs.readdirSync(LOG_DIR)
+      .filter(f => /^\d{4}-\d{2}-\d{2}\.log$/.test(f))
+      .map(f => f.replace('.log', ''));
+    const summary = files.map(date => {
+      const { count, intact } = readLogFile(date);
+      return { date, count, intact };
+    });
+    res.json({ ok: true, allIntact: summary.every(s => s.intact), files: summary });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
+// Decrypt and return one day's events + chain-integrity flag
+app.get('/api/history/:date', requireAuth, (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return res.json({ ok: false, error: 'Invalid date — expected YYYY-MM-DD' });
+  const result = readLogFile(date);
+  res.json({ ok: true, date, ...result });
+});
+
 // ─── Socket.io ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log('[Dashboard] Client connected:', socket.id);
@@ -464,8 +652,10 @@ io.on('connection', (socket) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
+  const logFileCount = fs.readdirSync(LOG_DIR).filter(f => f.endsWith('.log')).length;
   console.log(`\n🛡️  ShieldWatch Collector  →  http://localhost:${PORT}`);
   console.log(`    Dashboard              →  http://localhost:${PORT}/`);
   console.log(`    Events API             →  POST http://localhost:${PORT}/api/event`);
-  console.log(`    Fingerprint API        →  POST http://localhost:${PORT}/api/fingerprint\n`);
+  console.log(`    Fingerprint API        →  POST http://localhost:${PORT}/api/fingerprint`);
+  console.log(`    Audit Log              →  ./logs/  (AES-256-GCM · HMAC chain · ${logFileCount} day${logFileCount !== 1 ? 's' : ''} stored)\n`);
 });

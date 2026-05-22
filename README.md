@@ -89,6 +89,40 @@ You will see the live dashboard. It starts empty — attacks appear the moment s
 
 ---
 
+## Part 3 — Encrypted Attack History
+
+Every attack is automatically saved to an encrypted log on the same machine as the dashboard. The data survives restarts and is protected against tampering.
+
+### How it works
+
+| | What happens |
+|--|--|
+| **Storage** | One file per day — `logs/2024-11-15.log` |
+| **Encryption** | AES-256-GCM — each entry has its own random key IV |
+| **Key** | Derived from your PIN using PBKDF2 (100,000 iterations) |
+| **Tamper detection** | HMAC-SHA256 chain — editing any past entry breaks every entry after it |
+
+### Viewing history
+
+1. Open the dashboard and enter your PIN
+2. Click the **History** button in the top-right of the header
+3. Click any date tab to decrypt and load that day's attacks
+4. Use the filters to narrow down by attack type, IP address, or verdict (Blocked / Logged / Decoy)
+5. Click **Export PDF** to generate a printable audit report
+
+The dashboard shows a green **✓ CHAIN INTACT** badge when the log is clean. If anyone has modified the log file, it shows **⚠ TAMPERED** in red.
+
+### Important files
+
+| File | What it is |
+|------|-----------|
+| `logs/YYYY-MM-DD.log` | Encrypted attack records for that day |
+| `logs/.salt` | The salt used to derive the encryption key — **do not delete this** |
+
+> If `logs/.salt` is deleted, all existing log files become unreadable. The salt is tied to your PIN — if you change the PIN, old logs cannot be decrypted with the new one.
+
+---
+
 ## Seeing it in action — quick test
 
 Once your app is running with the sensor and the dashboard is open, try this in your browser's address bar:
@@ -153,6 +187,8 @@ Restart your app. Events will now reach your laptop dashboard from anywhere.
 | PIN code | `2348` | `SW_PIN=9999 node collector.js` |
 | Port | `3002` | `SW_PORT=4000 node collector.js` |
 
+> **Note:** The PIN is used to derive the encryption key for the audit log. If you change the PIN after logs already exist, the old log files will not be readable. Set your PIN once and keep it.
+
 ### Sensor settings
 
 | Setting | Default | What it does |
@@ -176,9 +212,14 @@ ShieldWatch/
 │
 ├── collector.js               Dashboard server
 ├── public/                    Dashboard UI files
+├── logs/                      Encrypted audit log (auto-created on first run)
+│   ├── .salt                  Encryption key salt — never delete or commit this
+│   └── YYYY-MM-DD.log         One encrypted log file per day
 ├── package.json
 └── README.md                  This file
 ```
+
+> The `logs/` folder is excluded from git (it is in `.gitignore`). The encrypted log files and the `.salt` file stay on your machine only.
 
 ---
 

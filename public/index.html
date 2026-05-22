@@ -126,6 +126,10 @@
     </div>
   </div>
 
+  <button class="h-btn hist-btn" onclick="openHistory()" title="View encrypted attack history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    History
+  </button>
   <button class="h-btn" id="resetBtn" title="Clear all data">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
     Reset
@@ -319,6 +323,70 @@
 
 </div><!-- /.layout -->
 </div><!-- /dashboard wrapper -->
+
+<!-- ═══ HISTORY OVERLAY ═══════════════════════════════════════════════════════ -->
+<div id="historyOverlay" class="history-overlay hidden">
+
+  <!-- Top bar: title + integrity badge + date tabs + actions -->
+  <div class="hist-topbar">
+    <div class="hist-topbar-left">
+      <svg class="hist-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <span class="hist-title">Attack History</span>
+      <span id="histIntegrityBadge"></span>
+    </div>
+
+    <div id="histDateTabs" class="hist-date-tabs">
+      <span class="hist-date-placeholder">Open to load dates…</span>
+    </div>
+
+    <div class="hist-topbar-right">
+      <button class="h-btn hist-export-btn" onclick="exportHistoryPDF()" title="Export current view as PDF">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export PDF
+      </button>
+      <button class="h-btn" onclick="closeHistory()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="hist-filters">
+    <select id="histFilterType" class="hist-filter" onchange="applyHistoryFilters()">
+      <option value="">All Attack Types</option>
+      <option value="sqli">SQL Injection</option>
+      <option value="xss">XSS</option>
+      <option value="pathTraversal">Path Traversal</option>
+      <option value="cmdInjection">Command Injection</option>
+      <option value="ddos">DDoS Flood</option>
+      <option value="csrf">CSRF</option>
+      <option value="bruteforce">Brute Force</option>
+      <option value="idor">IDOR</option>
+      <option value="sessionFixation">Session Fixation</option>
+      <option value="ssrf">SSRF</option>
+      <option value="crlf">CRLF Injection</option>
+      <option value="honeypot">Honeypot</option>
+    </select>
+    <input id="histFilterIP" class="hist-filter" type="text" placeholder="Filter by IP…" oninput="applyHistoryFilters()">
+    <select id="histFilterVerdict" class="hist-filter" onchange="applyHistoryFilters()">
+      <option value="">All Verdicts</option>
+      <option value="BLOCKED">BLOCKED</option>
+      <option value="LOGGED">LOGGED</option>
+      <option value="DECOY">DECOY</option>
+    </select>
+    <span id="histEventCount" class="hist-count"></span>
+  </div>
+
+  <!-- Event table -->
+  <div id="histEventList" class="hist-event-list">
+    <div class="hist-empty">Select a date above to decrypt and view attack records</div>
+  </div>
+
+</div>
+<!-- /HISTORY OVERLAY -->
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/dashboard.js"></script>

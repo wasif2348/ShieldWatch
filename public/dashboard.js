@@ -620,3 +620,245 @@ $('logoutBtn').addEventListener('click', async () => {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 fetchStats();
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HISTORY — Encrypted Audit Log viewer
+   ══════════════════════════════════════════════════════════════════════════ */
+
+let _histEvents = [];   // decrypted events for the selected date
+let _histIntact = true; // HMAC chain status
+let _histDate   = null; // currently viewed date string (YYYY-MM-DD)
+
+// ── Open overlay and fetch available dates ────────────────────────────────────
+async function openHistory() {
+  const overlay = $('historyOverlay');
+  overlay.classList.remove('hidden');
+  $('histDateTabs').innerHTML = '<span class="hist-date-placeholder">Loading dates…</span>';
+  $('histIntegrityBadge').className = '';
+  $('histIntegrityBadge').textContent = '';
+  $('histEventList').innerHTML = '<div class="hist-empty">Select a date above to decrypt and view attack records</div>';
+  $('histEventCount').textContent = '';
+
+  try {
+    const res  = await fetch('/api/history/dates', { headers: authHeaders() });
+    const data = await res.json();
+
+    if (!data.ok || !data.dates || !data.dates.length) {
+      $('histDateTabs').innerHTML = '<span class="hist-date-placeholder">No history yet — attacks are recorded as they happen.</span>';
+      return;
+    }
+
+    renderDateTabs(data.dates);
+    loadHistoryDate(data.dates[0]); // auto-load newest
+  } catch (err) {
+    $('histDateTabs').innerHTML = `<span class="hist-date-placeholder" style="color:#ef4444">Error: ${escHtml(err.message)}</span>`;
+  }
+}
+
+// ── Close overlay ─────────────────────────────────────────────────────────────
+function closeHistory() {
+  $('historyOverlay').classList.add('hidden');
+}
+
+// ── Render date tab strip ─────────────────────────────────────────────────────
+function renderDateTabs(dates) {
+  $('histDateTabs').innerHTML = dates.map(d =>
+    `<button class="hist-date-btn ${d === _histDate ? 'active' : ''}"
+             onclick="loadHistoryDate('${d}')">${d}</button>`
+  ).join('');
+}
+
+// ── Load and decrypt one day's records ───────────────────────────────────────
+async function loadHistoryDate(date) {
+  _histDate  = date;
+  _histEvents = [];
+
+  // Update active tab highlight
+  document.querySelectorAll('.hist-date-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === date);
+  });
+
+  // Reset badge and list while loading
+  $('histIntegrityBadge').className  = '';
+  $('histIntegrityBadge').textContent = '';
+  $('histEventList').innerHTML = '<div class="hist-empty">Decrypting records…</div>';
+  $('histEventCount').textContent = '';
+
+  try {
+    const res  = await fetch(`/api/history/${date}`, { headers: authHeaders() });
+    const data = await res.json();
+
+    _histEvents = (data.events || []).filter(e => !e._tampered && !e._error);
+    _histIntact = data.intact !== false;
+
+    // Integrity badge
+    const badge = $('histIntegrityBadge');
+    badge.className   = `hist-badge ${_histIntact ? 'hist-badge-intact' : 'hist-badge-tampered'}`;
+    badge.textContent = _histIntact ? '✓ CHAIN INTACT' : '⚠ TAMPERED';
+
+    // Reset filters
+    $('histFilterType').value    = '';
+    $('histFilterIP').value      = '';
+    $('histFilterVerdict').value = '';
+
+    renderHistoryEvents();
+  } catch (err) {
+    $('histEventList').innerHTML =
+      `<div class="hist-empty" style="color:#ef4444">Failed to load records: ${escHtml(err.message)}</div>`;
+  }
+}
+
+// ── Filter changed ────────────────────────────────────────────────────────────
+function applyHistoryFilters() { renderHistoryEvents(); }
+
+// ── Render filtered event list ────────────────────────────────────────────────
+function renderHistoryEvents() {
+  const typeFilter    = ($('histFilterType')?.value    || '').trim();
+  const ipFilter      = ($('histFilterIP')?.value      || '').trim().toLowerCase();
+  const verdictFilter = ($('histFilterVerdict')?.value || '').trim();
+
+  const filtered = _histEvents.filter(evt => {
+    if (typeFilter    && (evt.threat?.type || '') !== typeFilter)           return false;
+    if (ipFilter      && !(evt.ip || '').toLowerCase().includes(ipFilter))  return false;
+    if (verdictFilter && (evt.verdict || '') !== verdictFilter)             return false;
+    return true;
+  });
+
+  $('histEventCount').textContent = `${filtered.length} event${filtered.length !== 1 ? 's' : ''}`;
+
+  if (!filtered.length) {
+    $('histEventList').innerHTML = '<div class="hist-empty">No events match the current filters</div>';
+    return;
+  }
+
+  const header = `<div class="hist-header-row">
+    <span>Attack Type</span>
+    <span>IP Address</span>
+    <span>Verdict</span>
+    <span>Endpoint</span>
+    <span style="text-align:right">Time</span>
+  </div>`;
+
+  const rows = filtered.map(evt => {
+    const type    = evt.threat?.type || 'unknown';
+    const meta    = attackMeta(type);
+    const verdict = evt.verdict || 'LOGGED';
+    const ip      = evt.ip || evt.session || '—';
+    const p       = `${evt.method || 'HTTP'} ${evt.path || '/'}`;
+    const ts      = evt.timestamp || evt.receivedAt || '';
+    const timeStr = ts
+      ? new Date(ts).toLocaleString([], { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
+      : '—';
+    const payload   = evt.threat?.raw ? String(evt.threat.raw).slice(0, 80) : '';
+    const isBlocked = verdict === 'BLOCKED';
+
+    return `<div class="hist-event-row" title="${escHtml(payload)}">
+      <span class="hist-col-type">
+        <span class="fi-badge" style="background:${meta.color}18;color:${meta.color};border:1px solid ${meta.color}30">
+          ${escHtml(meta.label.toUpperCase())}
+        </span>
+      </span>
+      <span class="hist-col-ip">${escHtml(ip)}</span>
+      <span><span class="fi-verdict ${isBlocked ? 'fi-blocked' : 'fi-logged'}">${escHtml(verdict)}</span></span>
+      <span class="hist-col-path" title="${escHtml(p)}">${escHtml(p)}</span>
+      <span class="hist-col-time">${escHtml(timeStr)}</span>
+    </div>`;
+  }).join('');
+
+  $('histEventList').innerHTML = header + rows;
+}
+
+// ── PDF Export ────────────────────────────────────────────────────────────────
+function exportHistoryPDF() {
+  const typeFilter    = ($('histFilterType')?.value    || '').trim();
+  const ipFilter      = ($('histFilterIP')?.value      || '').trim().toLowerCase();
+  const verdictFilter = ($('histFilterVerdict')?.value || '').trim();
+
+  const filtered = _histEvents.filter(evt => {
+    if (typeFilter    && (evt.threat?.type || '') !== typeFilter)           return false;
+    if (ipFilter      && !(evt.ip || '').toLowerCase().includes(ipFilter))  return false;
+    if (verdictFilter && (evt.verdict || '') !== verdictFilter)             return false;
+    return true;
+  });
+
+  const rows = filtered.map((evt, i) => {
+    const type    = evt.threat?.type || 'unknown';
+    const meta    = attackMeta(type);
+    const verdict = evt.verdict || 'LOGGED';
+    const ip      = evt.ip || evt.session || '—';
+    const geo     = evt.geo ? [evt.geo.country_name, evt.geo.city].filter(Boolean).join(', ') : '';
+    const endpoint= `${evt.method || 'HTTP'} ${evt.path || '/'}`;
+    const ts      = evt.timestamp || evt.receivedAt || '';
+    const timeStr = ts ? new Date(ts).toLocaleString() : '—';
+    const payload = evt.threat?.raw ? String(evt.threat.raw).slice(0, 140) : '—';
+    const bg      = i % 2 === 0 ? '#ffffff' : '#f9fafb';
+
+    return `<tr style="background:${bg}">
+      <td>${i + 1}</td>
+      <td><strong>${escHtml(meta.label)}</strong></td>
+      <td>${escHtml(ip)}</td>
+      <td>${escHtml(geo)}</td>
+      <td><strong>${escHtml(verdict)}</strong></td>
+      <td>${escHtml(endpoint)}</td>
+      <td>${escHtml(timeStr)}</td>
+      <td style="font-family:monospace;font-size:8px;word-break:break-all;color:#555">${escHtml(payload)}</td>
+    </tr>`;
+  }).join('');
+
+  const integrityLine = _histIntact
+    ? '<span style="color:#10b981;font-weight:700">✓ HMAC-SHA256 chain verified — log is tamper-free</span>'
+    : '<span style="color:#ef4444;font-weight:700">⚠ TAMPERED — HMAC chain broken, log may have been modified</span>';
+
+  const activeFilters = [
+    typeFilter    ? `Type: ${typeFilter}`       : '',
+    ipFilter      ? `IP contains: ${ipFilter}`  : '',
+    verdictFilter ? `Verdict: ${verdictFilter}` : '',
+  ].filter(Boolean).join('  ·  ') || 'None';
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<title>ShieldWatch Audit Report — ${escHtml(_histDate || '—')}</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:11px;color:#111;margin:24px;}
+  h1{font-size:20px;margin:0 0 4px}
+  .meta{color:#666;font-size:10px;margin-bottom:10px}
+  .integrity{margin-bottom:14px;padding:8px 12px;background:#f1f5f9;border-radius:4px;border:1px solid #e2e8f0}
+  table{width:100%;border-collapse:collapse;font-size:10px}
+  th{background:#1a1a2e;color:#fff;padding:7px 8px;text-align:left;font-size:9px;
+     text-transform:uppercase;letter-spacing:.05em}
+  td{padding:5px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+  @media print{
+    body{margin:12px}
+    .no-print{display:none}
+    @page{size:A4 landscape;margin:1.5cm}
+  }
+</style>
+</head>
+<body>
+<h1>ShieldWatch — Attack Audit Report</h1>
+<div class="meta">
+  Date: <strong>${escHtml(_histDate || '—')}</strong>&nbsp;&nbsp;|&nbsp;&nbsp;
+  Events: <strong>${filtered.length}</strong>&nbsp;&nbsp;|&nbsp;&nbsp;
+  Filters: ${escHtml(activeFilters)}&nbsp;&nbsp;|&nbsp;&nbsp;
+  Generated: ${new Date().toLocaleString()}
+</div>
+<div class="integrity">${integrityLine}</div>
+<table>
+  <thead><tr>
+    <th>#</th><th>Attack Type</th><th>IP Address</th><th>Location</th>
+    <th>Verdict</th><th>Endpoint</th><th>Timestamp</th><th>Payload (truncated)</th>
+  </tr></thead>
+  <tbody>
+    ${rows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999">No events match the active filters</td></tr>'}
+  </tbody>
+</table>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=1100,height=720');
+  if (!w) { alert('Allow pop-ups for this site to export PDF.'); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 350);
+}
