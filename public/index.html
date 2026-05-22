@@ -126,6 +126,10 @@
     </div>
   </div>
 
+  <button class="h-btn chpin-btn" onclick="openChangePinModal()" title="Change dashboard PIN">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>
+    Change PIN
+  </button>
   <button class="h-btn hist-btn" onclick="openHistory()" title="View encrypted attack history">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     History
@@ -323,6 +327,73 @@
 
 </div><!-- /.layout -->
 </div><!-- /dashboard wrapper -->
+
+<!-- ═══ CHANGE PIN MODAL ══════════════════════════════════════════════════════ -->
+<div id="changePinOverlay" class="cpn-overlay hidden" onclick="closePinModalOnBackdrop(event)">
+  <div class="cpn-card">
+
+    <div class="cpn-header">
+      <div class="cpn-header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0110 0v4"/>
+          <circle cx="12" cy="16" r="1" fill="currentColor"/>
+        </svg>
+      </div>
+      <div>
+        <div class="cpn-title">Change Dashboard PIN</div>
+        <div class="cpn-sub">You must enter your current PIN to proceed</div>
+      </div>
+    </div>
+
+    <div class="cpn-body">
+
+      <div class="cpn-field">
+        <label class="cpn-label">Current PIN</label>
+        <input id="cpnCurrent" class="cpn-input" type="password" maxlength="4"
+               pattern="\d{4}" inputmode="numeric" placeholder="••••"
+               onkeydown="cpnKeydown(event)">
+      </div>
+
+      <div class="cpn-divider"></div>
+
+      <div class="cpn-field">
+        <label class="cpn-label">New PIN</label>
+        <input id="cpnNew" class="cpn-input" type="password" maxlength="4"
+               pattern="\d{4}" inputmode="numeric" placeholder="••••"
+               onkeydown="cpnKeydown(event)">
+      </div>
+
+      <div class="cpn-field">
+        <label class="cpn-label">Confirm New PIN</label>
+        <input id="cpnConfirm" class="cpn-input" type="password" maxlength="4"
+               pattern="\d{4}" inputmode="numeric" placeholder="••••"
+               onkeydown="cpnKeydown(event)">
+      </div>
+
+      <div class="cpn-warning">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;flex-shrink:0;margin-top:1px">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span>All active sessions will be logged out immediately. Existing encrypted log files cannot be read with the new PIN.</span>
+      </div>
+
+      <div id="cpnMsg" class="cpn-msg"></div>
+
+    </div>
+
+    <div class="cpn-footer">
+      <button class="cpn-btn-cancel" onclick="closeChangePinModal()">Cancel</button>
+      <button class="cpn-btn-confirm" id="cpnSubmitBtn" onclick="submitPinChange()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="20 6 9 17 4 12"/></svg>
+        Change PIN
+      </button>
+    </div>
+
+  </div>
+</div>
+<!-- /CHANGE PIN MODAL -->
 
 <!-- ═══ HISTORY OVERLAY ═══════════════════════════════════════════════════════ -->
 <div id="historyOverlay" class="history-overlay hidden">

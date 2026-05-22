@@ -19,7 +19,9 @@ const crypto     = require('crypto');
 const fs         = require('fs');
 
 // ─── PIN + Session config (must be before io middleware) ──────────────────────
-const PIN_CODE    = process.env.SW_PIN || '2348';
+// PIN_CODE is mutable — it can be updated at runtime via the change-PIN endpoint.
+// Source priority: logs/.pin (persisted change) → SW_PIN env var → default '2348'
+let PIN_CODE    = process.env.SW_PIN || '2348';
 const validTokens = new Set();
 
 // Deterministic HMAC token — same PIN always produces the same token.
@@ -47,6 +49,16 @@ const SALT_FILE = path.join(LOG_DIR, '.salt');
 
 if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
 
+// ── Load persisted PIN (overrides env var if the user changed it via dashboard) ──
+const PIN_FILE = path.join(LOG_DIR, '.pin');
+if (fs.existsSync(PIN_FILE)) {
+  const saved = fs.readFileSync(PIN_FILE, 'utf8').trim();
+  if (/^\d{4}$/.test(saved)) {
+    PIN_CODE = saved;
+    console.log('[PIN] Loaded saved PIN from logs/.pin');
+  }
+}
+
 // Persistent salt — created once on first run, never regenerated
 let _logSalt;
 if (fs.existsSync(SALT_FILE)) {
@@ -57,8 +69,8 @@ if (fs.existsSync(SALT_FILE)) {
   console.log('[AuditLog] New salt created — logs/.salt  (keep this file safe!)');
 }
 
-// Derive AES-256 key once at startup — 100 000 PBKDF2 iterations
-const LOG_KEY = crypto.pbkdf2Sync(PIN_CODE, _logSalt, 100_000, 32, 'sha256');
+// Derive AES-256 key — mutable so it can be re-derived after a PIN change
+let LOG_KEY = crypto.pbkdf2Sync(PIN_CODE, _logSalt, 100_000, 32, 'sha256');
 
 // In-memory chain tail per calendar day: date → { prevMac, seq }
 const _chainState = new Map();
@@ -575,6 +587,68 @@ app.post('/api/auth/logout', (req, res) => {
     console.log('[Auth] Dashboard session terminated');
   }
   res.json({ ok: true });
+});
+
+// ─── Change PIN ───────────────────────────────────────────────────────────────
+// Protected: must be logged in (requireAuth) AND know the current PIN.
+// After a successful change:
+//   • New PIN saved to logs/.pin (survives restarts)
+//   • LOG_KEY re-derived for future log entries
+//   • All active sessions invalidated → everyone must re-authenticate
+//   • Chain state cache cleared (it held offsets computed under the old key)
+//
+// ⚠ Existing log files stay encrypted under the old key — they are not lost,
+//   but the History tab cannot decrypt them with the new key. New entries from
+//   this point forward use the new key.
+app.post('/api/auth/change-pin', requireAuth, (req, res) => {
+  const { currentPin, newPin, confirmPin } = req.body || {};
+
+  // 1 — Verify the caller knows the current PIN
+  if (String(currentPin) !== String(PIN_CODE)) {
+    console.log('[PIN-Change] ❌ Wrong current PIN supplied');
+    return res.status(401).json({ ok: false, error: 'Current PIN is incorrect' });
+  }
+
+  // 2 — Validate format: exactly 4 digits
+  if (!/^\d{4}$/.test(String(newPin))) {
+    return res.json({ ok: false, error: 'New PIN must be exactly 4 digits (0–9)' });
+  }
+
+  // 3 — Must be a different PIN
+  if (String(newPin) === String(PIN_CODE)) {
+    return res.json({ ok: false, error: 'New PIN must be different from the current PIN' });
+  }
+
+  // 4 — Confirmation must match
+  if (String(newPin) !== String(confirmPin)) {
+    return res.json({ ok: false, error: 'PINs do not match — please re-enter' });
+  }
+
+  // ── Apply the change ───────────────────────────────────────────────────────
+  const oldPin = PIN_CODE;
+
+  // Persist new PIN to file
+  fs.writeFileSync(PIN_FILE, String(newPin), 'utf8');
+
+  // Update in-memory PIN
+  PIN_CODE = String(newPin);
+
+  // Re-derive the log encryption key under the new PIN
+  LOG_KEY = crypto.pbkdf2Sync(PIN_CODE, _logSalt, 100_000, 32, 'sha256');
+
+  // Clear chain state cache — offsets were computed with the old key
+  _chainState.clear();
+
+  // Invalidate ALL active sessions — every connected client must re-authenticate
+  validTokens.clear();
+
+  console.log(`[PIN-Change] ✅ PIN changed (${oldPin} → ****) — all sessions invalidated`);
+
+  res.json({
+    ok:      true,
+    message: 'PIN changed. All sessions have been logged out — please re-authenticate with your new PIN.',
+    warning: 'Log files created before this change were encrypted with the previous PIN and cannot be viewed in the History tab until you revert to the old PIN.',
+  });
 });
 
 // ─── Reset (demo convenience) ─────────────────────────────────────────────────

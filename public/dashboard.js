@@ -618,6 +618,105 @@ $('logoutBtn').addEventListener('click', async () => {
   forceLogout();
 });
 
+// ─── Change PIN ───────────────────────────────────────────────────────────────
+function openChangePinModal() {
+  // Reset all fields and messages
+  $('cpnCurrent').value  = '';
+  $('cpnNew').value      = '';
+  $('cpnConfirm').value  = '';
+  ['cpnCurrent','cpnNew','cpnConfirm'].forEach(id => $( id).classList.remove('error'));
+  setCpnMsg('', '');
+  $('cpnSubmitBtn').disabled = false;
+  $('changePinOverlay').classList.remove('hidden');
+  setTimeout(() => $('cpnCurrent').focus(), 60);
+}
+
+function closeChangePinModal() {
+  $('changePinOverlay').classList.add('hidden');
+}
+
+// Close if user clicks the dark backdrop (not the card itself)
+function closePinModalOnBackdrop(e) {
+  if (e.target === $('changePinOverlay')) closeChangePinModal();
+}
+
+// Allow Enter to move between fields or submit on the last field
+function cpnKeydown(e) {
+  if (e.key !== 'Enter') return;
+  const fields = ['cpnCurrent', 'cpnNew', 'cpnConfirm'];
+  const idx    = fields.indexOf(e.target.id);
+  if (idx < fields.length - 1) {
+    $(fields[idx + 1]).focus();
+  } else {
+    submitPinChange();
+  }
+}
+
+function setCpnMsg(text, type) {
+  const el = $('cpnMsg');
+  el.textContent  = text;
+  el.className    = `cpn-msg ${type}`;
+}
+
+async function submitPinChange() {
+  const currentPin = $('cpnCurrent').value.trim();
+  const newPin     = $('cpnNew').value.trim();
+  const confirmPin = $('cpnConfirm').value.trim();
+
+  // ── Client-side validation ──
+  let error = null;
+  let focus = null;
+
+  ['cpnCurrent','cpnNew','cpnConfirm'].forEach(id => $(id).classList.remove('error'));
+
+  if (!currentPin) { error = 'Enter your current PIN'; focus = 'cpnCurrent'; }
+  else if (!/^\d{4}$/.test(newPin))    { error = 'New PIN must be exactly 4 digits'; focus = 'cpnNew'; }
+  else if (newPin === currentPin)      { error = 'New PIN must differ from current PIN'; focus = 'cpnNew'; }
+  else if (newPin !== confirmPin)      { error = 'PINs do not match'; focus = 'cpnConfirm'; }
+
+  if (error) {
+    if (focus) { $(focus).classList.add('error'); $(focus).focus(); }
+    setCpnMsg(error, 'err');
+    return;
+  }
+
+  // ── Submit to server ──
+  $('cpnSubmitBtn').disabled = true;
+  setCpnMsg('Verifying…', '');
+
+  try {
+    const res  = await fetch('/api/auth/change-pin', {
+      method:  'POST',
+      headers: authHeaders(),
+      body:    JSON.stringify({ currentPin, newPin, confirmPin }),
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      // Wrong current PIN or validation error from server
+      $('cpnSubmitBtn').disabled = false;
+      if (data.error?.toLowerCase().includes('current')) {
+        $('cpnCurrent').classList.add('error');
+        $('cpnCurrent').focus();
+      }
+      setCpnMsg(data.error || 'Change failed', 'err');
+      return;
+    }
+
+    // ── Success — show message then force re-login ──
+    setCpnMsg('PIN changed! Logging out…', 'ok');
+
+    setTimeout(() => {
+      closeChangePinModal();
+      forceLogout(); // clears localStorage and reloads → shows PIN gate
+    }, 1400);
+
+  } catch (err) {
+    $('cpnSubmitBtn').disabled = false;
+    setCpnMsg('Connection error — try again', 'err');
+  }
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 fetchStats();
 

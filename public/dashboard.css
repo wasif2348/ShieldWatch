@@ -623,6 +623,103 @@ body { background:var(--bg); font-family:var(--font); color:var(--text); -webkit
 }
 
 /* ═══════════════════════════════════════════════════
+   CHANGE PIN MODAL
+═══════════════════════════════════════════════════ */
+
+/* Change PIN button in header */
+.chpin-btn { border-color:rgba(234,179,8,.25) !important; color:rgba(234,179,8,.85) !important; }
+.chpin-btn:hover { background:rgba(234,179,8,.08) !important; border-color:rgba(234,179,8,.45) !important; }
+
+/* Backdrop */
+.cpn-overlay {
+  position:fixed; inset:0; z-index:300;
+  background:rgba(0,0,0,.75); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+}
+.cpn-overlay.hidden { display:none; }
+
+/* Card */
+.cpn-card {
+  width:360px; max-width:calc(100vw - 40px);
+  background:#0d0815; border:1px solid rgba(234,179,8,.2);
+  border-radius:14px; overflow:hidden;
+  box-shadow:0 0 60px rgba(234,179,8,.08), 0 24px 48px rgba(0,0,0,.6);
+}
+
+/* Header */
+.cpn-header {
+  display:flex; align-items:flex-start; gap:14px;
+  padding:20px 20px 16px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  background:rgba(234,179,8,.04);
+}
+.cpn-header-icon {
+  width:36px; height:36px; border-radius:9px; flex-shrink:0;
+  background:rgba(234,179,8,.1); border:1px solid rgba(234,179,8,.2);
+  display:flex; align-items:center; justify-content:center;
+  color:rgba(234,179,8,.85);
+}
+.cpn-header-icon svg { width:17px; height:17px; }
+.cpn-title { font-size:13px; font-weight:700; color:#e2e8f0; letter-spacing:.03em; }
+.cpn-sub   { font-size:10px; color:var(--text-muted); margin-top:3px; }
+
+/* Body */
+.cpn-body { padding:18px 20px; display:flex; flex-direction:column; gap:12px; }
+
+.cpn-field { display:flex; flex-direction:column; gap:5px; }
+.cpn-label { font-size:9.5px; font-weight:600; color:var(--text-muted); letter-spacing:.08em; text-transform:uppercase; }
+.cpn-input {
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
+  color:#e2e8f0; font-size:15px; letter-spacing:.4em;
+  padding:10px 14px; border-radius:8px;
+  font-family:var(--font); outline:none; width:100%; box-sizing:border-box;
+  transition:border-color .15s;
+}
+.cpn-input:focus { border-color:rgba(234,179,8,.5); background:rgba(234,179,8,.04); }
+.cpn-input::placeholder { letter-spacing:.2em; color:rgba(255,255,255,.2); }
+.cpn-input.error { border-color:rgba(239,68,68,.5) !important; background:rgba(239,68,68,.05); }
+
+.cpn-divider { height:1px; background:rgba(255,255,255,.06); margin:2px 0; }
+
+/* Warning box */
+.cpn-warning {
+  display:flex; align-items:flex-start; gap:8px;
+  padding:10px 12px; border-radius:7px;
+  background:rgba(234,179,8,.06); border:1px solid rgba(234,179,8,.15);
+  color:rgba(234,179,8,.7); font-size:9.5px; line-height:1.55;
+}
+
+/* Message */
+.cpn-msg {
+  font-size:10.5px; font-weight:600; min-height:16px;
+  text-align:center; letter-spacing:.02em;
+}
+.cpn-msg.err { color:#ef4444; }
+.cpn-msg.ok  { color:#10b981; }
+
+/* Footer */
+.cpn-footer {
+  display:flex; gap:8px;
+  padding:14px 20px; border-top:1px solid rgba(255,255,255,.06);
+}
+.cpn-btn-cancel {
+  flex:1; padding:9px; border-radius:8px; cursor:pointer;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+  color:var(--text-muted); font-size:11px; font-family:var(--font);
+  transition:background .15s;
+}
+.cpn-btn-cancel:hover { background:rgba(255,255,255,.09); color:#e2e8f0; }
+.cpn-btn-confirm {
+  flex:2; padding:9px 14px; border-radius:8px; cursor:pointer;
+  background:rgba(234,179,8,.12); border:1px solid rgba(234,179,8,.3);
+  color:rgba(234,179,8,.9); font-size:11px; font-weight:700;
+  font-family:var(--font); display:flex; align-items:center; justify-content:center; gap:6px;
+  transition:background .15s, opacity .15s; letter-spacing:.04em;
+}
+.cpn-btn-confirm:hover    { background:rgba(234,179,8,.2); }
+.cpn-btn-confirm:disabled { opacity:.45; cursor:not-allowed; }
+
+/* ═══════════════════════════════════════════════════
    HISTORY OVERLAY
 ═══════════════════════════════════════════════════ */
 .history-overlay {
