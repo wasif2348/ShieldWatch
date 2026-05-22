@@ -1,60 +1,70 @@
-# ShieldWatch — UADR Intelligence Dashboard
+# ShieldWatch — UADR Security Platform
 
-**Unified Attack Detection & Response — Real-time threat monitoring dashboard for the ShieldWatch RASP platform.**
+**Unified Attack Detection & Response — Real-time threat monitoring for any web application.**
 
-ShieldWatch is the command center. It receives live attack events from the ShieldWatch Sensor running inside any protected web application, enriches them with IP geolocation and browser fingerprinting data, builds attacker profiles, and displays everything on a real-time red dashboard.
+ShieldWatch is a complete Runtime Application Self-Protection (RASP) platform. It detects and blocks 11 categories of web attacks in real time, tracks attackers by browser fingerprint, and displays everything on a live threat intelligence dashboard.
 
-> CS-471 Final Project — Air University Islamabad
-> Companion to [NexaChat](https://github.com/wasif2348/nexachat) — a deliberately vulnerable chat app used as the demo target.
+This repository contains two components:
 
----
-
-## What It Does
-
-- **Receives attack events** from the ShieldWatch Sensor in real time
-- **Enriches events** with IP geolocation (country, city, ISP)
-- **Browser fingerprinting** — tracks attackers by device (canvas, WebGL, GPU, screen, timezone), not just IP. Survives VPN switches.
-- **Builds attacker profiles** — groups all activity from the same device into one profile with threat score, attack history, and browser details
-- **PIN-protected dashboard** — secure access gate before any data is visible
-- **Block/unblock IPs** — one click in the dashboard pushes the block to the sensor on the protected app
-- **Block by fingerprint** — blocks the device even if the attacker changes IP
-- **Live feed** — every attack appears within milliseconds via Socket.io
-- **Attack statistics** — counters per threat type, blocked vs logged verdicts
+| Component | Folder | What it does |
+|-----------|--------|--------------|
+| **ShieldWatch Sensor** | [`/shieldwatch-sensor`](./shieldwatch-sensor) | Middleware that goes inside any Express app and blocks attacks |
+| **ShieldWatch Dashboard** | root | The command center — receives events, builds attacker profiles, shows live feed |
 
 ---
 
-## Architecture
+## How It Works
 
 ```
-[Attacker]
-    │
-    ▼
-[NexaChat on EC2]  ←── ShieldWatch Sensor intercepts every request
-    │
-    │  POST /api/event  (attack detected)
-    │  POST /api/fingerprint  (browser fingerprint)
-    ▼
-[Tunnel — e.g. ngrok http 3002]
-    │
-    ▼
-[ShieldWatch Dashboard — your laptop, port 3002]
-    │
-    ├── Enriches with geolocation
-    ├── Builds attacker profile
-    ├── Shows on live dashboard
-    └── Can push IP/fingerprint blocks back to sensor
+Any Web Application  (yours, anyone's)
+        │
+        │  3 lines of code — ShieldWatch Sensor installed
+        ▼
+Attacks intercepted and blocked before reaching your routes
+        │
+        │  Attack events sent to Dashboard
+        ▼
+ShieldWatch Dashboard — live feed, attacker profiles, block controls
 ```
 
 ---
 
-## Quick Start
+## Part 1 — The Sensor
 
-### Requirements
-- Node.js 18+
-- The ShieldWatch Sensor must be running inside a target app (e.g. NexaChat)
-- A tunnel to expose port 3002 to the internet (so EC2 can reach your laptop)
+> **The sensor goes into any Express/Node.js app. Not just one specific app. Any app.**
 
-### Install & Run
+See the full sensor documentation here: **[shieldwatch-sensor/README.md](./shieldwatch-sensor/README.md)**
+
+### Quick install into any app
+
+```bash
+# Copy the sensor folder into your project
+cp -r shieldwatch-sensor/ your-project/
+
+# Or install directly (if published to npm)
+npm install shieldwatch-sensor
+```
+
+### Add 3 lines to your server.js
+
+```javascript
+const ShieldWatch = require('./shieldwatch-sensor');
+const sw = ShieldWatch.create({ collectorUrl: 'http://your-dashboard:3002' });
+app.use(sw.middleware);
+```
+
+That's it. Every route below that line is now protected against:
+
+- SQL Injection · XSS · Path Traversal · Command Injection
+- CSRF · IDOR · Session Fixation · DDoS · Brute Force · SSRF · CRLF
+
+---
+
+## Part 2 — The Dashboard
+
+The dashboard receives events from the sensor, enriches them with geolocation and browser fingerprint data, and shows everything live.
+
+### Run it
 
 ```bash
 git clone https://github.com/wasif2348/ShieldWatch.git
@@ -63,74 +73,54 @@ npm install
 node collector.js
 ```
 
-Open `http://localhost:3002` in your browser.
+Open `http://localhost:3002` — PIN: **2348**
 
-You will see a PIN gate. Default PIN: **2348**
+### What it shows
+
+- Live attack feed — every blocked request appears within milliseconds
+- Attacker profiles — device fingerprint, browser, OS, screen, GPU, timezone
+- IP geolocation — country, city, ISP
+- Block controls — ban an IP or device fingerprint with one click
+- Attack statistics — counters per threat type
+
+---
+
+## Connecting Sensor → Dashboard
+
+The sensor reports to the dashboard over HTTP. Set `collectorUrl` in your app to wherever the dashboard is running.
+
+**If both are on the same machine:**
+```javascript
+ShieldWatch.create({ collectorUrl: 'http://localhost:3002' })
+```
+
+**If your app is on a remote server (EC2, VPS, etc.) and dashboard is on your laptop:**
+You need a tunnel so the server can reach your laptop. Start the dashboard, open a tunnel to port 3002, then set the tunnel URL as `collectorUrl` in your app's config.
+
+**If both are on the same remote server:**
+```javascript
+ShieldWatch.create({ collectorUrl: 'http://localhost:3002' })
+```
+No tunnel needed.
 
 ---
 
 ## Configuration
 
-| Environment Variable | Default | Description |
-|----------------------|---------|-------------|
+### Dashboard
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `SW_PIN` | `2348` | Dashboard access PIN |
 | `SW_PORT` | `3002` | Port to listen on |
 
-```bash
-SW_PIN=9999 SW_PORT=3002 node collector.js
-```
+### Sensor
+See full config options in [shieldwatch-sensor/README.md](./shieldwatch-sensor/README.md)
 
----
-
-## Connecting to a Protected App (EC2 Demo Setup)
-
-The dashboard runs on your **laptop**. The protected app runs on **EC2**. You need a tunnel so EC2 can reach your laptop.
-
-### Step 1 — Start the dashboard
-```bash
-node collector.js
-# Running on http://localhost:3002
-```
-
-### Step 2 — Open a tunnel
-```bash
-ngrok http 3002
-# Gives you: https://abc123.ngrok-free.app
-```
-
-### Step 3 — Set the tunnel URL on EC2
-SSH into EC2, open `~/nexachat/ecosystem.config.js`, set:
-```javascript
-SW_CEREBRO_URL: 'https://abc123.ngrok-free.app',
-SW_ENABLED: 'true',
-```
-Then restart:
-```bash
-pm2 restart nexachat
-```
-
-### Step 4 — Open the dashboard
-```
-http://localhost:3002
-```
-Enter PIN `2348`. You will see "Waiting for NexaChat…" until the first attack event arrives.
-
----
-
-## Demo Attacks (live in class)
-
-Once connected, trigger these from a browser pointed at NexaChat:
-
-| Attack | How to trigger |
-|--------|----------------|
-| SQL Injection | Login with username `admin'--` |
-| XSS | Search for `<img src=x onerror=alert(1)>` |
-| Path Traversal | DevTools console: `fetch('/api/file?path=../../private/db_config.txt')` |
-| Honeypot | `fetch('/admin')` or `fetch('/.env')` |
-| DDoS | Run `node ddos-flood.js` in the NexaChat folder |
-| Brute Force | Run `node brute-force.js` in the NexaChat folder |
-
-Every attack appears on the dashboard within milliseconds.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SW_CEREBRO_URL` | `http://localhost:3002` | Dashboard URL |
+| `SW_APP_ID` | `app` | Label for this app in dashboard |
+| `SW_LOG_ONLY` | `false` | Detect but never block (passive mode) |
 
 ---
 
@@ -138,9 +128,18 @@ Every attack appears on the dashboard within milliseconds.
 
 ```
 ShieldWatch/
-├── collector.js      Event receiver, geolocation enrichment, attacker profiling
+│
+├── shieldwatch-sensor/        ← The sensor — install this in any app
+│   ├── index.js               Main sensor code (factory pattern)
+│   ├── README.md              Full sensor documentation
+│   ├── package.json
+│   └── demo/
+│       └── app.js             Standalone demo showing sensor on a fresh Express app
+│
+├── collector.js               Dashboard backend — receives events, builds profiles
+├── public/                    Dashboard frontend (HTML + CSS + JS)
 ├── package.json
-└── public/           Dashboard frontend (HTML + CSS + JS)
+└── README.md
 ```
 
 ---

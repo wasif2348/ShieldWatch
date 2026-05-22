@@ -1,0 +1,14 @@
+{
+  "name": "shieldwatch-sensor",
+  "version": "1.0.0",
+  "description": "Runtime Application Self-Protection (RASP) middleware for Node.js / Express — plug into any web app in minutes",
+  "main": "index.js",
+  "keywords": [
+    "security", "rasp", "waf", "middleware", "express",
+    "ddos", "xss", "sqli", "csrf", "protection", "cybersecurity"
+  ],
+  "author": "ShieldWatch",
+  "license": "MIT",
+  "engines": { "node": ">=16.0.0" },
+  "dependencies": {}
+}
